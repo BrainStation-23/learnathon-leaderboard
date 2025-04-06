@@ -46,7 +46,7 @@ export function TechStackSettings() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all tech stacks - using raw query to bypass type checking temporarily
+      // Fetch all tech stacks
       const { data: techStacksData, error: techStacksError } = await supabase
         .from('tech_stacks')
         .select("*")
@@ -63,59 +63,38 @@ export function TechStackSettings() {
 
       if (reposError) throw reposError;
       
-      // Fetch repository tech stacks relationships - using raw query
+      // Instead of using RPC, we'll fetch the repository-tech stack relationships directly
       const { data: repoTechStacksData, error: repoTechStacksError } = await supabase
-        .rpc('get_repository_tech_stacks');
-
-      if (repoTechStacksError) {
-        // Try alternative approach if RPC doesn't exist
-        const { data: altData, error: altError } = await supabase
-          .from('repository_tech_stacks')
-          .select(`
-            repository_id,
-            tech_stack:tech_stack_id (id, name)
-          `);
+        .from('repository_tech_stacks')
+        .select(`
+          repository_id,
+          tech_stack:tech_stack_id (id, name)
+        `);
           
-        if (altError) throw altError;
-        
-        // Transform the data
-        const techStacksByRepo: Record<string, TechStack[]> = {};
-        
-        if (altData) {
-          altData.forEach((item: any) => {
-            const repoId = item.repository_id;
-            if (!techStacksByRepo[repoId]) {
-              techStacksByRepo[repoId] = [];
-            }
-            techStacksByRepo[repoId].push(item.tech_stack);
-          });
-        }
-        
-        // Merge data to create repositories with their tech stacks
-        const reposWithTechStacks = reposData.map((repo: any) => {
-          return {
-            ...repo,
-            tech_stacks: techStacksByRepo[repo.id] || []
-          };
+      if (repoTechStacksError) throw repoTechStacksError;
+      
+      // Transform the data
+      const techStacksByRepo: Record<string, TechStack[]> = {};
+      
+      if (repoTechStacksData) {
+        repoTechStacksData.forEach((item: any) => {
+          const repoId = item.repository_id;
+          if (!techStacksByRepo[repoId]) {
+            techStacksByRepo[repoId] = [];
+          }
+          techStacksByRepo[repoId].push(item.tech_stack);
         });
-        
-        setRepositories(reposWithTechStacks);
-      } else {
-        // If the RPC exists and worked
-        // Merge data to create repositories with their tech stacks
-        const reposWithTechStacks = reposData.map((repo: any) => {
-          const repoTechStacks = repoTechStacksData
-            .filter((rts: any) => rts.repository_id === repo.id)
-            .map((rts: any) => rts.tech_stack);
-            
-          return {
-            ...repo,
-            tech_stacks: repoTechStacks || []
-          };
-        });
-        
-        setRepositories(reposWithTechStacks);
       }
+      
+      // Merge data to create repositories with their tech stacks
+      const reposWithTechStacks = reposData.map((repo: any) => {
+        return {
+          ...repo,
+          tech_stacks: techStacksByRepo[repo.id] || []
+        };
+      });
+      
+      setRepositories(reposWithTechStacks);
       
       // Set first repository as selected by default if available
       if (reposData.length > 0 && !selectedRepository) {
@@ -138,13 +117,17 @@ export function TechStackSettings() {
     
     setSaving(true);
     try {
-      // Check if the relationship already exists - using raw query
-      const { data: existing } = await supabase
+      // Check if the relationship already exists
+      const { data: existing, error: checkError } = await supabase
         .from('repository_tech_stacks')
         .select("*")
         .eq("repository_id", selectedRepository)
         .eq("tech_stack_id", selectedTechStack)
         .single();
+        
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "No rows found"
+        throw checkError;
+      }
         
       if (existing) {
         toast({
@@ -155,15 +138,15 @@ export function TechStackSettings() {
         return;
       }
       
-      // Add the relationship - using raw query
-      const { error } = await supabase
+      // Add the relationship
+      const { error: insertError } = await supabase
         .from('repository_tech_stacks')
         .insert({
           repository_id: selectedRepository,
           tech_stack_id: selectedTechStack
         });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
       
       toast({
         title: "Tech stack added",
@@ -188,7 +171,7 @@ export function TechStackSettings() {
   const handleRemoveTechStack = async (repositoryId: string, techStackId: string) => {
     setSaving(true);
     try {
-      // Delete relationship - using raw query
+      // Delete relationship
       const { error } = await supabase
         .from('repository_tech_stacks')
         .delete()
