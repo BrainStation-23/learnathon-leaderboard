@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -9,108 +9,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { TechStack } from "@/types/leaderboard";
-
-interface Repository {
-  id: string;
-  name: string;
-  tech_stacks?: TechStack[];
-}
+import { useTechStackRepository } from "./hooks/useTechStackRepository";
+import { RepositorySelector } from "./components/RepositorySelector";
+import { CurrentTechStacks } from "./components/CurrentTechStacks";
+import { AddTechStack } from "./components/AddTechStack";
 
 export function TechStackSettings() {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [techStacks, setTechStacks] = useState<TechStack[]>([]);
   const [selectedRepository, setSelectedRepository] = useState<string | null>(null);
   const [selectedTechStack, setSelectedTechStack] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Fetch all tech stacks
-      const { data: techStacksData, error: techStacksError } = await supabase
-        .from('tech_stacks')
-        .select("*")
-        .order("name");
-
-      if (techStacksError) throw techStacksError;
-      setTechStacks(techStacksData as TechStack[]);
-
-      // Fetch repositories
-      const { data: reposData, error: reposError } = await supabase
-        .from("repositories")
-        .select("id, name")
-        .order("name");
-
-      if (reposError) throw reposError;
-      
-      // Instead of using RPC, we'll fetch the repository-tech stack relationships directly
-      const { data: repoTechStacksData, error: repoTechStacksError } = await supabase
-        .from('repository_tech_stacks')
-        .select(`
-          repository_id,
-          tech_stack:tech_stack_id (id, name)
-        `);
-          
-      if (repoTechStacksError) throw repoTechStacksError;
-      
-      // Transform the data
-      const techStacksByRepo: Record<string, TechStack[]> = {};
-      
-      if (repoTechStacksData) {
-        repoTechStacksData.forEach((item: any) => {
-          const repoId = item.repository_id;
-          if (!techStacksByRepo[repoId]) {
-            techStacksByRepo[repoId] = [];
-          }
-          techStacksByRepo[repoId].push(item.tech_stack);
-        });
-      }
-      
-      // Merge data to create repositories with their tech stacks
-      const reposWithTechStacks = reposData.map((repo: any) => {
-        return {
-          ...repo,
-          tech_stacks: techStacksByRepo[repo.id] || []
-        };
-      });
-      
-      setRepositories(reposWithTechStacks);
-      
-      // Set first repository as selected by default if available
-      if (reposData.length > 0 && !selectedRepository) {
-        setSelectedRepository(reposData[0].id);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast({
-        title: "Error loading data",
-        description: "Could not load repositories and tech stacks",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { loading, repositories, techStacks, fetchData } = useTechStackRepository();
 
   const handleAddTechStack = async () => {
     if (!selectedRepository || !selectedTechStack) return;
@@ -168,14 +80,16 @@ export function TechStackSettings() {
     }
   };
 
-  const handleRemoveTechStack = async (repositoryId: string, techStackId: string) => {
+  const handleRemoveTechStack = async (techStackId: string) => {
+    if (!selectedRepository) return;
+    
     setSaving(true);
     try {
       // Delete relationship
       const { error } = await supabase
         .from('repository_tech_stacks')
         .delete()
-        .eq("repository_id", repositoryId)
+        .eq("repository_id", selectedRepository)
         .eq("tech_stack_id", techStackId);
 
       if (error) throw error;
@@ -222,82 +136,32 @@ export function TechStackSettings() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Repository selector */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Select Repository</label>
-          <Select value={selectedRepository || ""} onValueChange={setSelectedRepository}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a repository" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Repositories</SelectLabel>
-                {repositories.map(repo => (
-                  <SelectItem key={repo.id} value={repo.id}>{repo.name}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+        <RepositorySelector 
+          repositories={repositories}
+          selectedRepository={selectedRepository}
+          setSelectedRepository={setSelectedRepository}
+        />
 
         {/* Current tech stacks for selected repository */}
         {selectedRepository && (
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Current Tech Stacks</h4>
-            <div className="flex flex-wrap gap-2 min-h-10 p-2 border rounded-md bg-muted/30">
-              {getRepositoryTechStacks(selectedRepository).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No tech stacks assigned</p>
-              ) : (
-                getRepositoryTechStacks(selectedRepository).map((techStack: TechStack) => (
-                  <Badge key={techStack.id} variant="secondary" className="flex items-center gap-1">
-                    {techStack.name}
-                    <button
-                      onClick={() => handleRemoveTechStack(selectedRepository, techStack.id)}
-                      className="hover:text-destructive focus:outline-none"
-                      disabled={saving}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))
-              )}
-            </div>
-          </div>
+          <CurrentTechStacks 
+            techStacks={getRepositoryTechStacks(selectedRepository)}
+            onRemove={handleRemoveTechStack}
+            saving={saving}
+          />
         )}
 
         <Separator />
 
         {/* Add new tech stack section */}
         {selectedRepository && (
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium">Add Tech Stack</h4>
-            <div className="flex gap-2">
-              <Select value={selectedTechStack || ""} onValueChange={setSelectedTechStack}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a tech stack" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Tech Stacks</SelectLabel>
-                    {techStacks.map(stack => (
-                      <SelectItem key={stack.id} value={stack.id}>{stack.name}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button 
-                onClick={handleAddTechStack} 
-                disabled={!selectedTechStack || saving}
-                size="sm"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-2" />
-                )}
-                Add
-              </Button>
-            </div>
-          </div>
+          <AddTechStack 
+            techStacks={techStacks}
+            selectedTechStack={selectedTechStack}
+            setSelectedTechStack={setSelectedTechStack}
+            onAdd={handleAddTechStack}
+            saving={saving}
+          />
         )}
       </CardContent>
     </Card>
