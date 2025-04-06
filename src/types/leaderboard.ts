@@ -1,6 +1,11 @@
 
 import { GitHubContributor } from "./index";
 
+export interface TechStack {
+  id: string;
+  name: string;
+}
+
 export interface LeaderboardItem {
   repositoryId: string;
   repositoryName: string;

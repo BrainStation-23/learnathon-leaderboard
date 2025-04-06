@@ -61,12 +61,12 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
 
     console.log("Contributors map:", contributorsMap);
     
-    // Fetch tech stacks for each repository
+    // Fetch tech stacks for each repository using raw query
     const { data: repoTechStacks, error: techStackError } = await supabase
       .from('repository_tech_stacks')
       .select(`
         repository_id,
-        tech_stack:tech_stack_id(id, name)
+        tech_stack:tech_stack_id (id, name)
       `);
     
     if (techStackError) {
