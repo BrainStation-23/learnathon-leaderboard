@@ -23,7 +23,8 @@ export async function saveRepositoryData(
             {
               name: repo.name,
               description: repo.description,
-              github_repo_id: repo.id,
+              // Ensure github_repo_id is a number - convert if it's a string
+              github_repo_id: typeof repo.id === 'string' ? parseInt(repo.id, 10) || null : repo.id,
               github_full_name: repo.full_name,
               html_url: repo.html_url,
               updated_at: new Date().toISOString()
