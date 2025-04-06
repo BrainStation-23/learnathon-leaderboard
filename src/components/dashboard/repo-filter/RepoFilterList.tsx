@@ -56,13 +56,13 @@ export default function RepoFilterList({ repositories, setRepositories, setFilte
     
     setSubmitting(true);
     try {
-      // Insert into filtered_repositories
-      const { error } = await supabase
-        .from('filtered_repositories')
+      // Insert into filtered_repositories with type assertion
+      const { error } = await (supabase
+        .from('filtered_repositories' as any)
         .insert({
           repository_id: selectedRepo.id,
           reason: reason.trim()
-        });
+        }));
       
       if (error) throw error;
       

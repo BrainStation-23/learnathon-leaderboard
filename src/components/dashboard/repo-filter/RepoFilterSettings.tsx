@@ -41,16 +41,16 @@ export default function RepoFilterSettings() {
           
         if (reposError) throw reposError;
         
-        // Fetch filtered repositories
-        const { data: filteredData, error: filteredError } = await supabase
-          .from('filtered_repositories')
-          .select('repository_id, reason');
+        // Fetch filtered repositories with type assertion
+        const { data: filteredData, error: filteredError } = await (supabase
+          .from('filtered_repositories' as any)
+          .select('repository_id, reason'));
           
         if (filteredError) throw filteredError;
         
         // Mark filtered repositories
-        const filteredIds = new Set(filteredData.map((item: any) => item.repository_id));
-        const filteredReasons = new Map(filteredData.map((item: any) => [item.repository_id, item.reason]));
+        const filteredIds = new Set(filteredData ? filteredData.map((item: any) => item.repository_id) : []);
+        const filteredReasons = new Map(filteredData ? filteredData.map((item: any) => [item.repository_id, item.reason]) : []);
         
         const reposWithFilterStatus = reposData.map((repo: any) => ({
           ...repo,

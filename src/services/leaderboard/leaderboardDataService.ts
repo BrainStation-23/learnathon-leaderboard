@@ -15,10 +15,10 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
     const filteredContributorsList = await fetchFilteredContributors();
     console.log("Filtered contributors list:", filteredContributorsList);
     
-    // Fetch filtered repository IDs
-    const { data: filteredRepoIds, error: filteredRepoError } = await supabase
-      .from('filtered_repositories')
-      .select('repository_id');
+    // Fetch filtered repository IDs with type assertion
+    const { data: filteredRepoIds, error: filteredRepoError } = await (supabase
+      .from('filtered_repositories' as any)
+      .select('repository_id'));
     
     if (filteredRepoError) {
       logger.error("Error fetching filtered repositories:", { error: filteredRepoError });
@@ -26,7 +26,7 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
     
     // Create a set of filtered repository IDs for quick lookup
     const filteredRepositoryIds = new Set(
-      filteredRepoIds?.map((item) => item.repository_id) || []
+      filteredRepoIds?.map((item: any) => item.repository_id) || []
     );
     
     console.log("Filtered repository IDs:", filteredRepositoryIds);

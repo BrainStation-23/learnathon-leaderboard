@@ -51,11 +51,11 @@ export default function FilteredRepoList({
     
     setRemoving(true);
     try {
-      // Delete from filtered_repositories
-      const { error } = await supabase
-        .from('filtered_repositories')
+      // Delete from filtered_repositories with type assertion
+      const { error } = await (supabase
+        .from('filtered_repositories' as any)
         .delete()
-        .eq('repository_id', selectedRepo.id);
+        .eq('repository_id', selectedRepo.id));
       
       if (error) throw error;
       

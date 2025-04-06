@@ -5,10 +5,10 @@ import { logger } from "../logService";
 
 export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
   try {
-    // Fetch filtered repository IDs first
-    const { data: filteredRepoIds, error: filteredRepoError } = await supabase
-      .from('filtered_repositories')
-      .select('repository_id');
+    // Fetch filtered repository IDs first with type assertion
+    const { data: filteredRepoIds, error: filteredRepoError } = await (supabase
+      .from('filtered_repositories' as any)
+      .select('repository_id'));
     
     if (filteredRepoError) {
       logger.error("Error fetching filtered repositories:", { error: filteredRepoError });
@@ -16,7 +16,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     
     // Create a set of filtered repository IDs for quick lookup
     const filteredRepositoryIds = new Set(
-      filteredRepoIds?.map((item) => item.repository_id) || []
+      filteredRepoIds?.map((item: any) => item.repository_id) || []
     );
     
     // Use our custom function to get repositories with metrics
