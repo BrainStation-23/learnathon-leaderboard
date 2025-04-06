@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { ConfigProvider } from "@/context/ConfigContext";
 
-import Index from "./pages/Index";
+import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Repositories from "./pages/Repositories";
@@ -36,7 +36,7 @@ function App() {
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<Leaderboard />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/repositories" element={<Repositories />} />
