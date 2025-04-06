@@ -40,7 +40,8 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       // Transform the data to match our TeamDashboardData type
       return {
         repoData: {
-          id: Math.floor(Math.random() * 10000),
+          // Use the actual UUID from the database instead of random number
+          id: item.id,
           name: item.name,
           full_name: item.name, 
           html_url: item.html_url || "",
