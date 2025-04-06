@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { LeaderboardItem } from "@/hooks/useLeaderboardData";
 import { ScoreProgressBar } from "./ScoreProgressBar";
 import { formatDistanceToNow } from "date-fns";
+import { RepositoryContributors } from "./RepositoryContributors";
+import { LinesOfCodeIndicator } from "./LinesOfCodeIndicator";
+import { Separator } from "@/components/ui/separator";
 
 interface RepositoryScoreCardProps {
   item: LeaderboardItem;
@@ -40,6 +43,22 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
+        {/* Show Lines of Code Indicator */}
+        <LinesOfCodeIndicator linesOfCode={item.linesOfCode} />
+        
+        <Separator />
+        
+        {/* Show Contributors */}
+        {item.contributors && item.contributors.length > 0 && (
+          <>
+            <RepositoryContributors 
+              contributors={item.contributors} 
+              totalCommits={item.commitsCount} 
+            />
+            <Separator />
+          </>
+        )}
+        
         <ScoreProgressBar 
           label="Code Coverage" 
           score={item.coverageScore} 

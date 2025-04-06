@@ -1,13 +1,14 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TeamDashboardData } from "@/types";
+import { TeamDashboardData, GitHubContributor } from "@/types";
 import { calculateTotalScore } from "@/utils/scoreCalculator";
 
 export interface LeaderboardItem {
   repositoryId: string;
   repositoryName: string;
   totalScore: number;
+  linesOfCode: number | null;
   coverage: number | null;
   coverageScore: number;
   bugs: number | null;
@@ -21,6 +22,8 @@ export interface LeaderboardItem {
   complexity: number | null;
   complexityScore: number;
   lastUpdated: string;
+  contributors?: GitHubContributor[];
+  commitsCount?: number;
 }
 
 export function useLeaderboardData() {
@@ -43,6 +46,37 @@ export function useLeaderboardData() {
         return;
       }
 
+      // Fetch contributors for each repository
+      const contributorPromises = reposData
+        .filter(item => item.sonar_project_key) // Only include repos with Sonar data
+        .map(async (repo) => {
+          const { data: contributors, error: contribError } = await supabase
+            .from('contributors')
+            .select('*')
+            .eq('repository_id', repo.id);
+            
+          if (contribError) {
+            console.error(`Error fetching contributors for ${repo.name}:`, contribError);
+            return { repoId: repo.id, contributors: [] };
+          }
+          
+          // Convert to GitHubContributor format
+          const formattedContributors: GitHubContributor[] = contributors.map(c => ({
+            id: c.github_id,
+            login: c.login,
+            avatar_url: c.avatar_url || '',
+            contributions: c.contributions
+          }));
+          
+          return { repoId: repo.id, contributors: formattedContributors };
+        });
+        
+      const contributorsResults = await Promise.all(contributorPromises);
+      const contributorsMap = contributorsResults.reduce((acc, item) => {
+        acc[item.repoId] = item.contributors;
+        return acc;
+      }, {} as Record<string, GitHubContributor[]>);
+
       // Process the data to calculate scores
       const leaderboardItems = reposData
         .filter(item => item.sonar_project_key) // Only include repos with Sonar data
@@ -63,6 +97,7 @@ export function useLeaderboardData() {
             repositoryId: item.id,
             repositoryName: item.name,
             totalScore,
+            linesOfCode: item.lines_of_code,
             coverage: item.coverage,
             coverageScore: calculateCoverageScore(item.coverage),
             bugs: item.bugs,
@@ -76,6 +111,8 @@ export function useLeaderboardData() {
             complexity: item.complexity,
             complexityScore: calculateComplexityScore(item.complexity),
             lastUpdated: item.updated_at,
+            contributors: contributorsMap[item.id] || [],
+            commitsCount: item.commits_count
           };
         })
         .sort((a, b) => b.totalScore - a.totalScore); // Sort by total score in descending order
