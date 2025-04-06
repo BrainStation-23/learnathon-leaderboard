@@ -2,57 +2,80 @@
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData, GitHubRepoData, SonarCloudData } from "@/types";
 import { Database } from "@/integrations/supabase/types";
+import { logger } from "./logService";
+
+export type ProgressCallback = (stage: string, progress: number, message: string) => void;
 
 export async function saveRepositoryData(
   repos: GitHubRepoData[],
-  userId: string
+  userId: string,
+  onProgress?: ProgressCallback
 ): Promise<void> {
   try {
+    const total = repos.length;
+    let processed = 0;
+    
     // For each repository, upsert the data
     for (const repo of repos) {
-      // First insert/update the repository
-      const { data: repoData, error: repoError } = await supabase
-        .from("repositories")
-        .upsert(
-          {
-            name: repo.name,
-            description: repo.description,
-            github_repo_id: repo.id,
-            github_full_name: repo.full_name,
-            html_url: repo.html_url,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: "github_repo_id", ignoreDuplicates: false }
-        )
-        .select("id");
+      try {
+        // First insert/update the repository
+        const { data: repoData, error: repoError } = await supabase
+          .from("repositories")
+          .upsert(
+            {
+              name: repo.name,
+              description: repo.description,
+              github_repo_id: repo.id,
+              github_full_name: repo.full_name,
+              html_url: repo.html_url,
+              updated_at: new Date().toISOString()
+            },
+            { onConflict: "github_repo_id", ignoreDuplicates: false }
+          )
+          .select("id");
 
-      if (repoError) {
-        console.error(`Error upserting repository ${repo.name}:`, repoError);
-        continue;
+        if (repoError) {
+          logger.error(`Error upserting repository ${repo.name}`, { error: repoError }, userId, 'repositories');
+          continue;
+        }
+
+        if (!repoData || repoData.length === 0) continue;
+        
+        const repositoryId = repoData[0].id;
+
+        // Then insert/update the repository metrics
+        const { error: metricsError } = await supabase.from("repository_metrics").upsert({
+          repository_id: repositoryId,
+          contributors_count: repo.contributors_count || 0,
+          commits_count: repo.commits_count || 0,
+          last_commit_date: repo.updated_at,
+          collected_at: new Date().toISOString()
+        }, { onConflict: "repository_id", ignoreDuplicates: false });
+        
+        if (metricsError) {
+          logger.error(`Error upserting metrics for ${repo.name}`, { error: metricsError }, userId, 'repository_metrics');
+        } else {
+          logger.info(`Successfully saved repository ${repo.name}`, { id: repositoryId }, userId, 'repositories', repositoryId);
+        }
+      } catch (repoError) {
+        logger.error(`Unexpected error processing repo ${repo.name}`, { error: repoError }, userId, 'repositories');
       }
 
-      if (!repoData || repoData.length === 0) continue;
-      
-      const repositoryId = repoData[0].id;
-
-      // Then insert/update the repository metrics
-      await supabase.from("repository_metrics").upsert({
-        repository_id: repositoryId,
-        contributors_count: repo.contributors_count || 0,
-        commits_count: repo.commits_count || 0,
-        last_commit_date: repo.updated_at,
-        collected_at: new Date().toISOString()
-      }, { onConflict: "repository_id", ignoreDuplicates: false });
+      processed++;
+      if (onProgress) {
+        onProgress('github', (processed / total) * 100, `Saved repository ${repo.name} (${processed}/${total})`);
+      }
     }
   } catch (error) {
-    console.error("Error saving repository data:", error);
+    logger.error("Error in saveRepositoryData", { error }, userId, 'repositories');
     throw error;
   }
 }
 
 export async function saveSonarData(
   sonarData: Map<string, SonarCloudData>,
-  userId: string
+  userId: string,
+  onProgress?: ProgressCallback
 ): Promise<void> {
   try {
     // Get all repositories
@@ -61,30 +84,57 @@ export async function saveSonarData(
       .select("id, name");
 
     if (error) {
-      console.error("Error fetching repositories:", error);
+      logger.error("Error fetching repositories for SonarCloud data", { error }, userId, 'repositories');
       throw error;
     }
 
+    const total = repositories?.length || 0;
+    let processed = 0;
+    let savedCount = 0;
+    let skippedCount = 0;
+
     // For each repository with sonar data, save it
     for (const repo of repositories || []) {
-      const sonarInfo = sonarData.get(repo.name);
-      if (!sonarInfo) continue;
+      try {
+        const sonarInfo = sonarData.get(repo.name);
+        
+        if (!sonarInfo) {
+          skippedCount++;
+          continue;
+        }
 
-      await supabase.from("sonar_metrics").upsert({
-        repository_id: repo.id,
-        project_key: sonarInfo.project_key,
-        lines_of_code: sonarInfo.metrics.lines_of_code,
-        coverage: sonarInfo.metrics.coverage,
-        bugs: sonarInfo.metrics.bugs,
-        vulnerabilities: sonarInfo.metrics.vulnerabilities,
-        code_smells: sonarInfo.metrics.code_smells,
-        technical_debt: sonarInfo.metrics.technical_debt,
-        complexity: sonarInfo.metrics.complexity,
-        collected_at: new Date().toISOString()
-      }, { onConflict: "repository_id", ignoreDuplicates: false });
+        const { error: sonarError } = await supabase.from("sonar_metrics").upsert({
+          repository_id: repo.id,
+          project_key: sonarInfo.project_key,
+          lines_of_code: sonarInfo.metrics.lines_of_code,
+          coverage: sonarInfo.metrics.coverage,
+          bugs: sonarInfo.metrics.bugs,
+          vulnerabilities: sonarInfo.metrics.vulnerabilities,
+          code_smells: sonarInfo.metrics.code_smells,
+          technical_debt: sonarInfo.metrics.technical_debt,
+          complexity: sonarInfo.metrics.complexity,
+          collected_at: new Date().toISOString()
+        }, { onConflict: "repository_id", ignoreDuplicates: false });
+        
+        if (sonarError) {
+          logger.error(`Error saving SonarCloud data for ${repo.name}`, { error: sonarError }, userId, 'sonar_metrics');
+        } else {
+          logger.info(`Successfully saved SonarCloud data for ${repo.name}`, {}, userId, 'sonar_metrics', repo.id);
+          savedCount++;
+        }
+      } catch (repoError) {
+        logger.error(`Unexpected error processing SonarCloud data for ${repo.name}`, { error: repoError }, userId, 'sonar_metrics');
+      }
+
+      processed++;
+      if (onProgress) {
+        onProgress('sonar', (processed / total) * 100, `Processed SonarCloud data (${savedCount} saved, ${skippedCount} skipped)`);
+      }
     }
+
+    logger.info(`Completed SonarCloud data sync`, { savedCount, skippedCount, total }, userId, 'sonar_metrics');
   } catch (error) {
-    console.error("Error saving sonar data:", error);
+    logger.error("Error in saveSonarData", { error }, userId, 'sonar_metrics');
     throw error;
   }
 }
@@ -96,7 +146,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       .rpc('get_repositories_with_metrics');
 
     if (error) {
-      console.error("Error fetching dashboard data:", error);
+      logger.error("Error fetching dashboard data", { error });
       throw error;
     }
 
@@ -128,7 +178,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       } : undefined
     }));
   } catch (error) {
-    console.error("Error in fetchDashboardData:", error);
+    logger.error("Error in fetchDashboardData", { error });
     throw error;
   }
 }
