@@ -124,7 +124,10 @@ export default function RepositoryList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {dashboardData.map((team) => (
-            <RepositoryCard key={team.repoData.id} data={team} />
+            <RepositoryCard 
+              key={`repo-${team.repoData.id}`} 
+              data={team} 
+            />
           ))}
         </div>
       )}
