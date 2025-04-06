@@ -103,9 +103,10 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     // Transform the data to match our TeamDashboardData type
     return (data || []).map(item => ({
       repoData: {
-        id: Number(item.github_repo_id) || Math.floor(Math.random() * 10000), // Fallback to random ID if not available
+        // Use a random ID as a fallback since github_repo_id is not available in the function result
+        id: Math.floor(Math.random() * 10000),
         name: item.name,
-        full_name: item.name,
+        full_name: item.name, // Use name as full_name since it's not in the function result
         html_url: item.html_url || "",
         description: item.description || "",
         updated_at: item.updated_at?.toString() || new Date().toISOString(),
