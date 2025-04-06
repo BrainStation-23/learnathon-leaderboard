@@ -5,4 +5,4 @@ import useRepositoryData from "./repository/useRepositoryData";
 export default useRepositoryData;
 
 // Re-export the types
-export { ProgressCallback } from "./repository/types";
+export type { ProgressCallback } from "./repository/types";
