@@ -18,16 +18,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, BarChart2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
+// Password requirements following Supabase standards (minimum 6 characters)
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 export default function LoginForm() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -40,27 +43,29 @@ export default function LoginForm() {
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     setIsSubmitting(true);
     try {
-      await login(values.email, values.password);
+      const { error } = await login(values.email, values.password);
       
-      // For now, we'll just store in localStorage
-      // This will be replaced with Supabase auth later
-      localStorage.setItem(
-        "hackathon-dashboard-user",
-        JSON.stringify({ email: values.email })
-      );
-      
-      toast({
-        title: "Login successful",
-        description: "You have been logged into the dashboard",
-      });
-      
-      // Redirect to dashboard
-      window.location.href = "/dashboard";
+      if (error) {
+        console.error("Login failed:", error);
+        toast({
+          title: "Login failed",
+          description: error.message || "Please check your credentials and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Login successful",
+          description: "You have been logged into the dashboard",
+        });
+        
+        // Redirect to dashboard
+        navigate("/dashboard");
+      }
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("Login error:", error);
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -133,7 +138,7 @@ export default function LoginForm() {
               </Button>
               
               <FormDescription className="text-center">
-                * This is a placeholder login page that will be integrated with Supabase authentication later
+                * Password must be at least 6 characters long
               </FormDescription>
             </form>
           </Form>

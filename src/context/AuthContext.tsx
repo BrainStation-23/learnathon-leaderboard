@@ -1,61 +1,78 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
-  user: any | null;
+  user: User | null;
+  session: Session | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ error: any | null }>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  session: null,
   isLoading: true,
-  login: async () => {},
+  login: async () => ({ error: null }),
   logout: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // This will be implemented when we connect to Supabase
   const login = async (email: string, password: string) => {
-    // This is a placeholder for the Supabase implementation
-    console.log("Login will be implemented with Supabase");
-    setUser({ email });
-    // We'll replace with actual Supabase auth logic when connected
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error("Login error:", error.message);
+        return { error };
+      }
+      
+      return { error: null };
+    } catch (error) {
+      console.error("Unexpected login error:", error);
+      return { error };
+    }
   };
 
   const logout = async () => {
-    // This is a placeholder for the Supabase implementation
-    console.log("Logout will be implemented with Supabase");
-    setUser(null);
-    // We'll replace with actual Supabase auth logic when connected
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
-  // Mock checking auth state for now
   useEffect(() => {
-    // This will be replaced with Supabase auth state check
-    const checkAuthState = async () => {
-      try {
-        // We'll implement this with Supabase
-        const storedUser = localStorage.getItem("hackathon-dashboard-user");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
-      } catch (error) {
-        console.error("Auth error:", error);
-      } finally {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
         setIsLoading(false);
       }
-    };
+    );
 
-    checkAuthState();
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, session, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
