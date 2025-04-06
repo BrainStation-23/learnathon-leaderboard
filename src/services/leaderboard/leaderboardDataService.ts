@@ -15,6 +15,22 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
     const filteredContributorsList = await fetchFilteredContributors();
     console.log("Filtered contributors list:", filteredContributorsList);
     
+    // Fetch filtered repository IDs
+    const { data: filteredRepoIds, error: filteredRepoError } = await supabase
+      .from('filtered_repositories')
+      .select('repository_id');
+    
+    if (filteredRepoError) {
+      logger.error("Error fetching filtered repositories:", { error: filteredRepoError });
+    }
+    
+    // Create a set of filtered repository IDs for quick lookup
+    const filteredRepositoryIds = new Set(
+      filteredRepoIds?.map((item) => item.repository_id) || []
+    );
+    
+    console.log("Filtered repository IDs:", filteredRepositoryIds);
+    
     // Use the function that returns repositories with metrics
     const { data: reposData, error: repoError } = await supabase
       .rpc('get_repositories_with_metrics');
@@ -26,8 +42,15 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
 
     console.log("Repositories data:", reposData);
 
+    // Filter out repositories that are in the filtered list
+    const filteredReposData = reposData.filter(item => 
+      !filteredRepositoryIds.has(item.id)
+    );
+    
+    console.log("Repositories after filtering:", filteredReposData.length);
+
     // Fetch contributors for each repository
-    const contributorPromises = reposData
+    const contributorPromises = filteredReposData
       .filter(item => item.sonar_project_key) // Only include repos with Sonar data
       .map(async (repo) => {
         const { data: contributors, error: contribError } = await supabase
@@ -87,7 +110,7 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
     console.log("Tech stacks map:", techStacksMap);
     
     // Process the data to calculate scores
-    const leaderboardItems = reposData
+    const leaderboardItems = filteredReposData
       .filter(item => item.sonar_project_key) // Only include repos with Sonar data
       .map(item => {
         // Get all contributors for this repository

@@ -113,6 +113,35 @@ export type Database = {
           },
         ]
       }
+      filtered_repositories: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string | null
+          repository_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          repository_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          repository_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "filtered_repositories_repository_id_fkey"
+            columns: ["repository_id"]
+            isOneToOne: true
+            referencedRelation: "repositories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repositories: {
         Row: {
           created_at: string

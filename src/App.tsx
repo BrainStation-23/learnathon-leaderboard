@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import DashboardConfig from "./pages/settings/DashboardConfig";
 import LeaderboardConfig from "./pages/settings/LeaderboardConfig";
 import TechStacksConfig from "./pages/settings/TechStacksConfig";
+import RepoFilterConfig from "./pages/settings/RepoFilterConfig";
 import NotFound from "./pages/NotFound";
 
 // Create a client outside of the component
@@ -48,6 +49,7 @@ function App() {
                 <Route path="/settings/dashboard" element={<DashboardConfig />} />
                 <Route path="/settings/leaderboard" element={<LeaderboardConfig />} />
                 <Route path="/settings/tech-stacks" element={<TechStacksConfig />} />
+                <Route path="/settings/repo-filter" element={<RepoFilterConfig />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

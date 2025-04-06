@@ -5,6 +5,20 @@ import { logger } from "../logService";
 
 export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
   try {
+    // Fetch filtered repository IDs first
+    const { data: filteredRepoIds, error: filteredRepoError } = await supabase
+      .from('filtered_repositories')
+      .select('repository_id');
+    
+    if (filteredRepoError) {
+      logger.error("Error fetching filtered repositories:", { error: filteredRepoError });
+    }
+    
+    // Create a set of filtered repository IDs for quick lookup
+    const filteredRepositoryIds = new Set(
+      filteredRepoIds?.map((item) => item.repository_id) || []
+    );
+    
     // Use our custom function to get repositories with metrics
     const { data: reposData, error: repoError } = await supabase
       .rpc('get_repositories_with_metrics');
@@ -14,8 +28,13 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       throw repoError;
     }
 
+    // Filter out repositories that are in the filtered list
+    const filteredReposData = reposData.filter(item => 
+      !filteredRepositoryIds.has(item.id)
+    );
+
     // Fetch contributors for each repository
-    const repos = await Promise.all((reposData || []).map(async (item) => {
+    const repos = await Promise.all((filteredReposData || []).map(async (item) => {
       // Get top contributors for this repository
       // Use the any type to bypass TypeScript's type checking for now
       const { data: contributorRows, error: contribError } = await (supabase

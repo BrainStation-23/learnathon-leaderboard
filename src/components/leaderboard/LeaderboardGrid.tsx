@@ -1,7 +1,7 @@
 
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import { RepositoryScoreCard } from "./RepositoryScoreCard";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { Loader2, RefreshCcw, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 
@@ -61,7 +61,13 @@ export function LeaderboardGrid() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            Some repositories may be filtered out in settings
+          </span>
+        </div>
         <Button variant="outline" size="sm" onClick={refreshData} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
           Refresh
