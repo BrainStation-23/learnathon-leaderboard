@@ -45,18 +45,18 @@ export default function LeaderboardSettings() {
         );
         
         // Get filtered contributors from user settings
-        const { data: filteredData, error: filteredError } = await supabase
+        const { data: configData, error: configError } = await supabase
           .from('configurations')
           .select('filtered_contributors')
           .eq('user_id', user.id)
           .single();
         
-        if (filteredError && filteredError.code !== 'PGRST116') { // PGRST116 = no rows found
-          console.error("Error fetching filtered contributors:", filteredError);
+        if (configError && configError.code !== 'PGRST116') { // PGRST116 = no rows found
+          console.error("Error fetching filtered contributors:", configError);
         }
         
-        // Check if filteredData exists and has filtered_contributors
-        const filteredContributors = filteredData?.filtered_contributors || [];
+        // Check if configData exists and has filtered_contributors
+        const filteredContributors = configData?.filtered_contributors || [];
         
         // Merge data
         const mergedContributors = uniqueContributors.map(contributor => ({

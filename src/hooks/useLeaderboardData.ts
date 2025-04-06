@@ -44,7 +44,7 @@ export function useLeaderboardData() {
         .single();
       
       if (!error && data && data.filtered_contributors) {
-        setFilteredContributors(data.filtered_contributors as string[]);
+        setFilteredContributors(data.filtered_contributors);
       }
     } catch (err) {
       console.error("Error fetching filter settings:", err);

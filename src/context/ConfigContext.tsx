@@ -16,6 +16,7 @@ const defaultConfig: ProjectConfig = {
   github_org: "",
   github_pat: "",
   sonarcloud_org: "",
+  filtered_contributors: [],
 };
 
 const ConfigContext = createContext<ConfigContextType>({
@@ -46,7 +47,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
       try {
         const { data: configData, error } = await supabase
           .from("configurations")
-          .select("github_org, github_pat, sonarcloud_org")
+          .select("github_org, github_pat, sonarcloud_org, filtered_contributors")
           .eq("user_id", user.id)
           .single();
 
@@ -65,6 +66,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
             github_org: configData.github_org,
             github_pat: configData.github_pat,
             sonarcloud_org: configData.sonarcloud_org,
+            filtered_contributors: configData.filtered_contributors || [],
           };
           
           setConfig(userConfig);
@@ -112,6 +114,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
             github_org: newConfig.github_org,
             github_pat: newConfig.github_pat,
             sonarcloud_org: newConfig.sonarcloud_org,
+            filtered_contributors: newConfig.filtered_contributors || [],
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", user.id);
@@ -124,6 +127,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
             github_org: newConfig.github_org,
             github_pat: newConfig.github_pat,
             sonarcloud_org: newConfig.sonarcloud_org,
+            filtered_contributors: newConfig.filtered_contributors || [],
           });
       }
 
