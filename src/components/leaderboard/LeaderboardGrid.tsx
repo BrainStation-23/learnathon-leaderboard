@@ -3,9 +3,25 @@ import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import { RepositoryScoreCard } from "./RepositoryScoreCard";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 export function LeaderboardGrid() {
   const { loading, leaderboardData, error, refreshData } = useLeaderboardData();
+
+  // Debug log when leaderboard data changes
+  useEffect(() => {
+    if (leaderboardData.length > 0) {
+      console.log("LeaderboardGrid - Data received:", {
+        repositoriesCount: leaderboardData.length,
+        repositories: leaderboardData.map(item => ({
+          name: item.repositoryName,
+          contributors: item.contributors?.map(c => c.login) || [],
+          contributorsCount: item.contributors?.length || 0,
+          totalCommits: item.commitsCount
+        }))
+      });
+    }
+  }, [leaderboardData]);
 
   if (loading && leaderboardData.length === 0) {
     return (

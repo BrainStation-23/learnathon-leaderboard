@@ -35,6 +35,7 @@ export function useLeaderboardData() {
   // Function to fetch filter settings
   const fetchFilterSettings = async () => {
     try {
+      console.log("Fetching filtered contributors...");
       // Get the filtered contributors list from the most recent configuration
       const { data, error } = await supabase
         .from('configurations')
@@ -43,11 +44,22 @@ export function useLeaderboardData() {
         .limit(1)
         .maybeSingle();
       
-      if (!error && data && data.filtered_contributors) {
+      if (error) {
+        console.error("Error fetching filtered contributors:", error);
+        return;
+      }
+      
+      console.log("Filtered contributors data:", data);
+      
+      if (data && data.filtered_contributors) {
+        console.log("Setting filtered contributors:", data.filtered_contributors);
         setFilteredContributors(data.filtered_contributors);
+      } else {
+        console.log("No filtered contributors found or empty array");
+        setFilteredContributors([]);
       }
     } catch (err) {
-      console.error("Error fetching filter settings:", err);
+      console.error("Error in fetchFilterSettings:", err);
       // We don't set an error state here as this is optional enhancement
     }
   };
@@ -59,6 +71,7 @@ export function useLeaderboardData() {
     try {
       // Fetch filter settings first to ensure we have the latest filters
       await fetchFilterSettings();
+      console.log("After fetchFilterSettings, filteredContributors:", filteredContributors);
       
       // Use the function that returns repositories with metrics
       const { data: reposData, error: repoError } = await supabase
@@ -69,6 +82,8 @@ export function useLeaderboardData() {
         setError("Failed to load leaderboard data");
         return;
       }
+
+      console.log("Repositories data:", reposData);
 
       // Fetch contributors for each repository
       const contributorPromises = reposData
@@ -83,6 +98,8 @@ export function useLeaderboardData() {
             console.error(`Error fetching contributors for ${repo.name}:`, contribError);
             return { repoId: repo.id, contributors: [] };
           }
+          
+          console.log(`Contributors for repository ${repo.name}:`, contributors);
           
           // Convert to GitHubContributor format
           const formattedContributors: GitHubContributor[] = contributors.map(c => ({
@@ -101,6 +118,9 @@ export function useLeaderboardData() {
         return acc;
       }, {} as Record<string, GitHubContributor[]>);
 
+      console.log("Contributors map:", contributorsMap);
+      console.log("Current filtered contributors state:", filteredContributors);
+
       // Process the data to calculate scores
       const leaderboardItems = reposData
         .filter(item => item.sonar_project_key) // Only include repos with Sonar data
@@ -117,19 +137,34 @@ export function useLeaderboardData() {
           
           const totalScore = calculateTotalScore(metrics);
           
+          // Get all contributors for this repository
+          let allContributors = contributorsMap[item.id] || [];
+          console.log(`Repository ${item.name} - All contributors:`, allContributors.map(c => c.login));
+          
           // Filter out contributors based on the filtered_contributors list
-          let contributors = contributorsMap[item.id] || [];
-          if (filteredContributors.length > 0) {
-            contributors = contributors.filter(
-              contributor => !filteredContributors.includes(contributor.login)
+          let filteredContributorsList = [...filteredContributors]; // Create a copy to avoid state update issues
+          console.log(`Repository ${item.name} - Filtering out:`, filteredContributorsList);
+          
+          let contributors = allContributors;
+          if (filteredContributorsList.length > 0) {
+            contributors = allContributors.filter(
+              contributor => {
+                const shouldInclude = !filteredContributorsList.includes(contributor.login);
+                console.log(`Contributor ${contributor.login} - Include: ${shouldInclude}`);
+                return shouldInclude;
+              }
             );
           }
+          
+          console.log(`Repository ${item.name} - After filtering:`, contributors.map(c => c.login));
           
           // Calculate the commit count based on filtered contributors
           const totalCommits = contributors.reduce(
             (sum, contributor) => sum + contributor.contributions, 
             0
           );
+          
+          console.log(`Repository ${item.name} - Total commits after filtering: ${totalCommits}`);
           
           return {
             repositoryId: item.id,
@@ -155,6 +190,7 @@ export function useLeaderboardData() {
         })
         .sort((a, b) => b.totalScore - a.totalScore); // Sort by total score in descending order
       
+      console.log("Final leaderboard data:", leaderboardItems);
       setLeaderboardData(leaderboardItems);
     } catch (err) {
       console.error("Error in leaderboard data processing:", err);

@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -17,6 +17,15 @@ interface RepositoryContributorsProps {
 }
 
 export function RepositoryContributors({ contributors, totalCommits }: RepositoryContributorsProps) {
+  // Debug log on component render
+  useEffect(() => {
+    console.log("RepositoryContributors rendering with:", { 
+      contributorsCount: contributors?.length, 
+      contributorNames: contributors?.map(c => c.login),
+      totalCommits 
+    });
+  }, [contributors, totalCommits]);
+
   if (!contributors || contributors.length === 0 || !totalCommits) {
     return (
       <div className="text-sm text-muted-foreground text-center py-2">
