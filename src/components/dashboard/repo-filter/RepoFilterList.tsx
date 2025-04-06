@@ -187,12 +187,12 @@ export default function RepoFilterList({ repositories, setRepositories, setFilte
             </div>
             <div className="space-y-2">
               <Label htmlFor="label">Label (optional)</Label>
-              <Select value={label || ""} onValueChange={setLabel}>
+              <Select value={label || undefined} onValueChange={setLabel}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a label" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {filterLabels.map((filterLabel) => (
                     <SelectItem key={filterLabel.value} value={filterLabel.value}>
                       {filterLabel.label}
