@@ -69,6 +69,47 @@ export type Database = {
         }
         Relationships: []
       }
+      contributors: {
+        Row: {
+          avatar_url: string | null
+          contributions: number
+          created_at: string
+          github_id: number
+          id: string
+          login: string
+          repository_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          contributions?: number
+          created_at?: string
+          github_id: number
+          id?: string
+          login: string
+          repository_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          contributions?: number
+          created_at?: string
+          github_id?: number
+          id?: string
+          login?: string
+          repository_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contributors_repository_id_fkey"
+            columns: ["repository_id"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repositories: {
         Row: {
           created_at: string

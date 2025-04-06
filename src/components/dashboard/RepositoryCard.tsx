@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Users, GitCommit, AlertTriangle, Bug, Shield, Code } from "lucide-react";
+import ContributorsDisplay from "./ContributorsDisplay";
 
 type RepositoryCardProps = {
   data: TeamDashboardData;
@@ -52,6 +53,15 @@ export default function RepositoryCard({ data }: RepositoryCardProps) {
                 </span>
                 <span className="text-xs text-muted-foreground">Updated</span>
               </div>
+            </div>
+            
+            {/* Contributors display */}
+            <div className="mt-4">
+              <h4 className="text-xs font-medium text-muted-foreground mb-2">Top Contributors</h4>
+              <ContributorsDisplay 
+                contributors={data.repoData.contributors} 
+                maxToShow={5} 
+              />
             </div>
           </div>
           

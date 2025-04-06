@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { TeamDashboardData, GitHubRepoData, SonarCloudData } from "@/types";
+import { TeamDashboardData, GitHubRepoData, SonarCloudData, GitHubContributor } from "@/types";
 import { Database } from "@/integrations/supabase/types";
 import { logger } from "./logService";
 
@@ -81,6 +81,35 @@ export async function saveRepositoryData(
             });
           
           metricsError = error;
+        }
+        
+        // Save contributors data if available
+        if (repo.contributors && repo.contributors.length > 0) {
+          try {
+            // Insert/update contributors for this repository
+            const contributorsToUpsert = repo.contributors.map((contributor: GitHubContributor) => ({
+              repository_id: repositoryId,
+              github_id: contributor.id,
+              login: contributor.login,
+              avatar_url: contributor.avatar_url,
+              contributions: contributor.contributions
+            }));
+
+            const { error: contributorsError } = await supabase
+              .from("contributors")
+              .upsert(contributorsToUpsert, {
+                onConflict: "repository_id,github_id",
+                ignoreDuplicates: false
+              });
+
+            if (contributorsError) {
+              logger.error(`Error saving contributors for ${repo.name}`, { error: contributorsError }, userId, 'contributors');
+            } else {
+              logger.info(`Saved ${contributorsToUpsert.length} contributors for ${repo.name}`, {}, userId, 'contributors');
+            }
+          } catch (contribError) {
+            logger.error(`Error processing contributors for ${repo.name}`, { error: contribError }, userId, 'contributors');
+          }
         }
         
         if (metricsError) {
@@ -209,41 +238,58 @@ export async function saveSonarData(
 export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
   try {
     // Use our custom function to get repositories with metrics
-    const { data, error } = await supabase
+    const { data: reposData, error: repoError } = await supabase
       .rpc('get_repositories_with_metrics');
 
-    if (error) {
-      logger.error("Error fetching dashboard data", { error });
-      throw error;
+    if (repoError) {
+      logger.error("Error fetching dashboard data", { error: repoError });
+      throw repoError;
     }
 
-    // Transform the data to match our TeamDashboardData type
-    return (data || []).map(item => ({
-      repoData: {
-        // Use a random ID as a fallback since github_repo_id is not available in the function result
-        id: Math.floor(Math.random() * 10000),
-        name: item.name,
-        full_name: item.name, // Use name as full_name since it's not in the function result
-        html_url: item.html_url || "",
-        description: item.description || "",
-        updated_at: item.updated_at?.toString() || new Date().toISOString(),
-        contributors_count: item.contributors_count || 0,
-        commits_count: item.commits_count || 0,
-      },
-      sonarData: item.sonar_project_key ? {
-        project_key: item.sonar_project_key,
-        name: item.name,
-        metrics: {
-          lines_of_code: item.lines_of_code,
-          coverage: item.coverage,
-          bugs: item.bugs,
-          vulnerabilities: item.vulnerabilities,
-          code_smells: item.code_smells,
-          technical_debt: item.technical_debt,
-          complexity: item.complexity
-        }
-      } : undefined
+    // Fetch contributors for each repository
+    const repos = await Promise.all((reposData || []).map(async (item) => {
+      // Get top contributors for this repository
+      const { data: contributors, error: contribError } = await supabase
+        .from('contributors')
+        .select('*')
+        .eq('repository_id', item.id)
+        .order('contributions', { ascending: false })
+        .limit(5);
+      
+      if (contribError) {
+        logger.error(`Error fetching contributors for repo ${item.name}`, { error: contribError });
+      }
+      
+      // Transform the data to match our TeamDashboardData type
+      return {
+        repoData: {
+          id: Math.floor(Math.random() * 10000),
+          name: item.name,
+          full_name: item.name, 
+          html_url: item.html_url || "",
+          description: item.description || "",
+          updated_at: item.updated_at?.toString() || new Date().toISOString(),
+          contributors_count: item.contributors_count || 0,
+          commits_count: item.commits_count || 0,
+          contributors: contributors || []
+        },
+        sonarData: item.sonar_project_key ? {
+          project_key: item.sonar_project_key,
+          name: item.name,
+          metrics: {
+            lines_of_code: item.lines_of_code,
+            coverage: item.coverage,
+            bugs: item.bugs,
+            vulnerabilities: item.vulnerabilities,
+            code_smells: item.code_smells,
+            technical_debt: item.technical_debt,
+            complexity: item.complexity
+          }
+        } : undefined
+      };
     }));
+    
+    return repos;
   } catch (error) {
     logger.error("Error in fetchDashboardData", { error });
     throw error;
