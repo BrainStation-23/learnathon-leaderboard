@@ -131,7 +131,11 @@ export default function ConfigForm() {
                     <Alert className="mt-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        Make sure this matches exactly with the organization name in SonarCloud URLs and project keys.
+                        <p>Your SonarCloud organization slug is the lowercase value in your SonarCloud URL:</p>
+                        <p className="font-mono text-xs mt-1">https://sonarcloud.io/organizations/<strong>your-org-slug</strong>/projects</p>
+                        <p className="mt-1">Note that project keys may have different formats, such as:</p>
+                        <p className="font-mono text-xs mt-1">Your-Org-Slug_repository-name</p>
+                        <p className="mt-1 text-xs">The system will try different format variations to find your projects.</p>
                       </AlertDescription>
                     </Alert>
                   </FormDescription>

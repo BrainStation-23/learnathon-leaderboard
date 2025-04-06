@@ -22,6 +22,10 @@ export async function fetchAndSaveSonarData(
         throw new Error("SonarCloud organization slug not provided");
       }
       
+      logger.info(`Starting SonarCloud data fetch for ${detailedRepos.length} repos`, { 
+        organization: sonarcloudOrg
+      }, userId, 'sync');
+      
       sonarDataMap = await fetchSonarCloudData(
         sonarcloudOrg,
         detailedRepos
@@ -35,7 +39,7 @@ export async function fetchAndSaveSonarData(
           organization: sonarcloudOrg,
           repoCount: detailedRepos.length 
         }, userId, 'sync');
-        addError(`No SonarCloud data found. Verify your SonarCloud organization slug (${sonarcloudOrg}) is correct and projects exist.`);
+        addError(`No SonarCloud data found. Verify your SonarCloud organization slug (${sonarcloudOrg}) is correct and projects exist. Note that project keys may have different formats (e.g., "Learnathon-By-Geeky-Solutions_reponame").`);
       } else {
         logger.info("SonarCloud data fetched", { count: foundCount }, userId, 'sync');
       }
