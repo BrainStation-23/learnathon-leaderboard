@@ -44,13 +44,44 @@ export async function saveRepositoryData(
         const repositoryId = repoData[0].id;
 
         // Then insert/update the repository metrics
-        const { error: metricsError } = await supabase.from("repository_metrics").upsert({
-          repository_id: repositoryId,
-          contributors_count: repo.contributors_count || 0,
-          commits_count: repo.commits_count || 0,
-          last_commit_date: repo.updated_at,
-          collected_at: new Date().toISOString()
-        }, { onConflict: "repository_id", ignoreDuplicates: false });
+        // First check if metrics already exist for this repository
+        const { data: existingMetrics, error: fetchError } = await supabase
+          .from("repository_metrics")
+          .select("id")
+          .eq("repository_id", repositoryId)
+          .single();
+
+        let metricsError;
+        
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          logger.error(`Error checking metrics for ${repo.name}`, { error: fetchError }, userId, 'repository_metrics');
+        } else if (existingMetrics) {
+          // Update existing metrics
+          const { error } = await supabase
+            .from("repository_metrics")
+            .update({
+              contributors_count: repo.contributors_count || 0,
+              commits_count: repo.commits_count || 0,
+              last_commit_date: repo.updated_at,
+              collected_at: new Date().toISOString()
+            })
+            .eq("id", existingMetrics.id);
+          
+          metricsError = error;
+        } else {
+          // Insert new metrics
+          const { error } = await supabase
+            .from("repository_metrics")
+            .insert({
+              repository_id: repositoryId,
+              contributors_count: repo.contributors_count || 0,
+              commits_count: repo.commits_count || 0,
+              last_commit_date: repo.updated_at,
+              collected_at: new Date().toISOString()
+            });
+          
+          metricsError = error;
+        }
         
         if (metricsError) {
           logger.error(`Error upserting metrics for ${repo.name}`, { error: metricsError }, userId, 'repository_metrics');
@@ -103,18 +134,54 @@ export async function saveSonarData(
           continue;
         }
 
-        const { error: sonarError } = await supabase.from("sonar_metrics").upsert({
-          repository_id: repo.id,
-          project_key: sonarInfo.project_key,
-          lines_of_code: sonarInfo.metrics.lines_of_code,
-          coverage: sonarInfo.metrics.coverage,
-          bugs: sonarInfo.metrics.bugs,
-          vulnerabilities: sonarInfo.metrics.vulnerabilities,
-          code_smells: sonarInfo.metrics.code_smells,
-          technical_debt: sonarInfo.metrics.technical_debt,
-          complexity: sonarInfo.metrics.complexity,
-          collected_at: new Date().toISOString()
-        }, { onConflict: "repository_id", ignoreDuplicates: false });
+        // Check if sonar metrics already exist for this repository
+        const { data: existingSonar, error: fetchError } = await supabase
+          .from("sonar_metrics")
+          .select("id")
+          .eq("repository_id", repo.id)
+          .single();
+        
+        let sonarError;
+        
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          logger.error(`Error checking SonarCloud data for ${repo.name}`, { error: fetchError }, userId, 'sonar_metrics');
+        } else if (existingSonar) {
+          // Update existing metrics
+          const { error } = await supabase
+            .from("sonar_metrics")
+            .update({
+              project_key: sonarInfo.project_key,
+              lines_of_code: sonarInfo.metrics.lines_of_code,
+              coverage: sonarInfo.metrics.coverage,
+              bugs: sonarInfo.metrics.bugs,
+              vulnerabilities: sonarInfo.metrics.vulnerabilities,
+              code_smells: sonarInfo.metrics.code_smells,
+              technical_debt: sonarInfo.metrics.technical_debt,
+              complexity: sonarInfo.metrics.complexity,
+              collected_at: new Date().toISOString()
+            })
+            .eq("id", existingSonar.id);
+          
+          sonarError = error;
+        } else {
+          // Insert new metrics
+          const { error } = await supabase
+            .from("sonar_metrics")
+            .insert({
+              repository_id: repo.id,
+              project_key: sonarInfo.project_key,
+              lines_of_code: sonarInfo.metrics.lines_of_code,
+              coverage: sonarInfo.metrics.coverage,
+              bugs: sonarInfo.metrics.bugs,
+              vulnerabilities: sonarInfo.metrics.vulnerabilities,
+              code_smells: sonarInfo.metrics.code_smells,
+              technical_debt: sonarInfo.metrics.technical_debt,
+              complexity: sonarInfo.metrics.complexity,
+              collected_at: new Date().toISOString()
+            });
+          
+          sonarError = error;
+        }
         
         if (sonarError) {
           logger.error(`Error saving SonarCloud data for ${repo.name}`, { error: sonarError }, userId, 'sonar_metrics');
