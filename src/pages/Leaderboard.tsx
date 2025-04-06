@@ -2,16 +2,31 @@
 import React from "react";
 import { LeaderboardGrid } from "@/components/leaderboard/LeaderboardGrid";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Leaderboard() {
+  const { user } = useAuth();
+
   return (
     <div className="container mx-auto px-4 py-10 max-w-screen-xl">
       <div className="mb-10 text-center">
         <div className="inline-flex items-center justify-center p-3 bg-muted rounded-full mb-4">
           <Trophy className="h-8 w-8 text-primary" />
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">Code Quality Leaderboard</h1>
+        <div className="flex items-center justify-center mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold">Code Quality Leaderboard</h1>
+          {user && (
+            <Button variant="outline" size="sm" className="ml-4" asChild>
+              <Link to="/settings">
+                <Settings className="h-4 w-4 mr-2" />
+                Configure
+              </Link>
+            </Button>
+          )}
+        </div>
         <p className="text-muted-foreground max-w-lg mx-auto">
           Repositories ranked by code quality metrics from SonarCloud. 
           The score is calculated based on coverage, bugs, vulnerabilities, code smells, technical debt, and complexity.

@@ -30,12 +30,36 @@ export function useLeaderboardData() {
   const [loading, setLoading] = useState(true);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [filteredContributors, setFilteredContributors] = useState<string[]>([]);
+
+  const fetchFilterSettings = async () => {
+    try {
+      // Try to get the filtered contributors list
+      // Note: This query will work for both logged-in and anonymous users
+      const { data, error } = await supabase
+        .from('configurations')
+        .select('filtered_contributors')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (!error && data?.filtered_contributors) {
+        setFilteredContributors(data.filtered_contributors);
+      }
+    } catch (err) {
+      console.error("Error fetching filter settings:", err);
+      // We don't set an error state here as this is optional enhancement
+    }
+  };
 
   const fetchLeaderboardData = async () => {
     setLoading(true);
     setError(null);
     
     try {
+      // Fetch filter settings first
+      await fetchFilterSettings();
+      
       // Use the function that returns repositories with metrics
       const { data: reposData, error: repoError } = await supabase
         .rpc('get_repositories_with_metrics');
@@ -93,6 +117,20 @@ export function useLeaderboardData() {
           
           const totalScore = calculateTotalScore(metrics);
           
+          // Apply filtering to contributors if needed
+          let contributors = contributorsMap[item.id] || [];
+          if (filteredContributors.length > 0) {
+            contributors = contributors.filter(
+              contributor => !filteredContributors.includes(contributor.login)
+            );
+          }
+          
+          // Calculate the adjusted commit count based on filtered contributors
+          const totalCommits = contributors.reduce(
+            (sum, contributor) => sum + contributor.contributions, 
+            0
+          );
+          
           return {
             repositoryId: item.id,
             repositoryName: item.name,
@@ -111,8 +149,8 @@ export function useLeaderboardData() {
             complexity: item.complexity,
             complexityScore: calculateComplexityScore(item.complexity),
             lastUpdated: item.updated_at,
-            contributors: contributorsMap[item.id] || [],
-            commitsCount: item.commits_count
+            contributors,
+            commitsCount: totalCommits
           };
         })
         .sort((a, b) => b.totalScore - a.totalScore); // Sort by total score in descending order
