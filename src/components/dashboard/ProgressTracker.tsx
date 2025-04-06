@@ -23,18 +23,49 @@ export default function ProgressTracker({
   statusMessage,
   progressStages
 }: ProgressTrackerProps) {
-  // Calculate overall progress
+  // Calculate overall progress based on the sequential stages
   const calculateOverallProgress = () => {
-    if (currentStage === 'complete' && currentProgress === 100) return 100;
-    if (currentStage === 'sonar') return 50 + (currentProgress / 2);
-    if (currentStage === 'github') return currentProgress / 2;
-    return 0;
+    // Our workflow is now truly sequential and percentages are already
+    // calculated properly in the hook
+    return currentProgress;
+  };
+
+  const renderStageBadge = (stage: string) => {
+    const isActive = currentStage === stage;
+    const isComplete = 
+      (stage === 'github' && ['sonar', 'complete'].includes(currentStage)) ||
+      (stage === 'sonar' && currentStage === 'complete') ||
+      (currentStage === stage && currentProgress === 100);
+    
+    return (
+      <div 
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          isComplete 
+            ? 'bg-green-100 text-green-800' 
+            : isActive 
+              ? 'bg-blue-100 text-blue-800' 
+              : 'bg-gray-100 text-gray-800'
+        }`}
+      >
+        {isActive && currentProgress < 100 && (
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+        )}
+        {stage.charAt(0).toUpperCase() + stage.slice(1)}
+      </div>
+    );
   };
 
   return (
     <Card className="mb-6">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Refreshing Data</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg">Refreshing Data</CardTitle>
+          <div className="flex space-x-2">
+            {renderStageBadge('github')}
+            {renderStageBadge('sonar')}
+            {renderStageBadge('complete')}
+          </div>
+        </div>
         <CardDescription>{statusMessage}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

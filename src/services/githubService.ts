@@ -6,29 +6,44 @@ export async function fetchRepositoriesForOrg(
   token: string
 ): Promise<GitHubRepoData[]> {
   try {
-    const response = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100`, {
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status}`);
-    }
-
-    const repos = await response.json();
+    let allRepos: GitHubRepoData[] = [];
+    let page = 1;
+    let hasMorePages = true;
     
-    // We'll enhance this data in the next step
-    return repos.map((repo: any) => ({
-      id: repo.id,
-      name: repo.name,
-      full_name: repo.full_name,
-      html_url: repo.html_url,
-      description: repo.description || "",
-      updated_at: repo.updated_at,
-      license: repo.license,
-    }));
+    while (hasMorePages) {
+      const response = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100&page=${page}`, {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status}`);
+      }
+
+      const repos = await response.json();
+      
+      // If we got fewer than 100 repos, we're on the last page
+      if (repos.length < 100) {
+        hasMorePages = false;
+      }
+      
+      const parsedRepos = repos.map((repo: any) => ({
+        id: repo.id,
+        name: repo.name,
+        full_name: repo.full_name,
+        html_url: repo.html_url,
+        description: repo.description || "",
+        updated_at: repo.updated_at,
+        license: repo.license,
+      }));
+      
+      allRepos = [...allRepos, ...parsedRepos];
+      page++;
+    }
+    
+    return allRepos;
   } catch (error) {
     console.error("Error fetching GitHub repositories:", error);
     throw error;

@@ -87,7 +87,7 @@ export default function useRepositoryData() {
         sonarcloud_org: config.sonarcloud_org 
       }, user.id, 'sync');
       
-      // Fetch GitHub repositories
+      // 1. Fetch GitHub repositories - 25% of overall progress
       let repos;
       try {
         repos = await fetchRepositoriesForOrg(
@@ -108,16 +108,16 @@ export default function useRepositoryData() {
         repos = [];
       }
 
-      // Fetch additional GitHub data (contributors, etc.)
+      // 2. Fetch additional GitHub data (contributors, etc.) - 25% -> 50% of overall progress
       let detailedRepos;
       try {
-        progressCallback('github', 40, 'Fetching repository details...');
+        progressCallback('github', 30, 'Fetching repository details...');
         detailedRepos = await fetchRepoDetails(
           repos,
           config.github_org,
           config.github_pat
         );
-        progressCallback('github', 60, `Retrieved details for ${detailedRepos.length} repositories`);
+        progressCallback('github', 50, `Retrieved details for ${detailedRepos.length} repositories`);
         logger.info("GitHub repository details fetched", { count: detailedRepos.length }, user.id, 'sync');
       } catch (error) {
         logger.error("Failed to fetch repository details", { error }, user.id, 'sync');
@@ -126,15 +126,29 @@ export default function useRepositoryData() {
         detailedRepos = repos;
       }
 
-      // Fetch SonarCloud data for these repositories
+      // 3. Save GitHub data to Supabase - 50% -> 60% of overall progress
+      try {
+        progressCallback('github', 55, 'Saving repository data to database...');
+        await saveRepositoryData(detailedRepos, user.id, (_, progress, message) => {
+          // Map internal progress to our overall progress (50-60%)
+          const mappedProgress = 50 + progress * 0.1; // 0-100% -> 50-60%
+          progressCallback('github', mappedProgress, message);
+        });
+        progressCallback('github', 60, 'Repository data saved successfully');
+      } catch (error) {
+        logger.error("Failed to save repository data to database", { error }, user.id, 'sync');
+        setErrors(prev => [...prev, "Failed to save repository data to database"]);
+      }
+
+      // 4. Fetch SonarCloud data - 60% -> 80% of overall progress
       let sonarDataMap;
       try {
-        progressCallback('sonar', 0, 'Fetching SonarCloud data...');
+        progressCallback('sonar', 60, 'Fetching SonarCloud data...');
         sonarDataMap = await fetchSonarCloudData(
           config.sonarcloud_org,
           detailedRepos
         );
-        progressCallback('sonar', 50, `Retrieved SonarCloud data for ${sonarDataMap.size} repositories`);
+        progressCallback('sonar', 80, `Retrieved SonarCloud data for ${sonarDataMap.size} repositories`);
         logger.info("SonarCloud data fetched", { count: sonarDataMap.size }, user.id, 'sync');
       } catch (error) {
         logger.error("Failed to fetch SonarCloud data", { error }, user.id, 'sync');
@@ -143,28 +157,23 @@ export default function useRepositoryData() {
         sonarDataMap = new Map();
       }
 
-      // Save data to Supabase
+      // 5. Save SonarCloud data to Supabase - 80% -> 90% of overall progress
       try {
-        progressCallback('github', 70, 'Saving repository data to database...');
-        await saveRepositoryData(detailedRepos, user.id, progressCallback);
-        progressCallback('github', 100, 'Repository data saved successfully');
-      } catch (error) {
-        logger.error("Failed to save repository data to database", { error }, user.id, 'sync');
-        setErrors(prev => [...prev, "Failed to save repository data to database"]);
-      }
-
-      try {
-        progressCallback('sonar', 60, 'Saving SonarCloud data to database...');
-        await saveSonarData(sonarDataMap, user.id, progressCallback);
-        progressCallback('sonar', 100, 'SonarCloud data saved successfully');
+        progressCallback('sonar', 80, 'Saving SonarCloud data to database...');
+        await saveSonarData(sonarDataMap, user.id, (_, progress, message) => {
+          // Map internal progress to our overall progress (80-90%)
+          const mappedProgress = 80 + progress * 0.1; // 0-100% -> 80-90%
+          progressCallback('sonar', mappedProgress, message);
+        });
+        progressCallback('sonar', 90, 'SonarCloud data saved successfully');
       } catch (error) {
         logger.error("Failed to save SonarCloud data to database", { error }, user.id, 'sync');
         setErrors(prev => [...prev, "Failed to save SonarCloud data to database"]);
       }
 
-      // Reload data from Supabase
+      // 6. Reload data from Supabase - 90% -> 100% of overall progress
       try {
-        progressCallback('complete', 0, 'Refreshing dashboard data...');
+        progressCallback('complete', 90, 'Refreshing dashboard data...');
         await loadData();
         progressCallback('complete', 100, 'Dashboard refreshed successfully');
       } catch (error) {
