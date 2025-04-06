@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LeaderboardItem } from "@/hooks/useLeaderboardData";
+import { LeaderboardItem } from "@/types/leaderboard";
 import { ScoreProgressBar } from "./ScoreProgressBar";
 import { formatDistanceToNow } from "date-fns";
 import { RepositoryContributors } from "./RepositoryContributors";
