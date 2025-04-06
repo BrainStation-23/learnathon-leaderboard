@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData, GitHubRepoData, SonarCloudData } from "@/types";
+import { Database } from "@/integrations/supabase/types";
 
 export async function saveRepositoryData(
   repos: GitHubRepoData[],

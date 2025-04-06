@@ -146,8 +146,18 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
         !!newConfig.github_pat && 
         !!newConfig.sonarcloud_org
       );
+      
+      toast({
+        title: "Configuration saved",
+        description: "Your settings have been updated successfully.",
+      });
     } catch (error) {
       console.error("Failed to update config:", error);
+      toast({
+        title: "Error saving configuration",
+        description: "Please try again or contact support.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
