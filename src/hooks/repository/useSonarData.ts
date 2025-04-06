@@ -17,15 +17,31 @@ export async function fetchAndSaveSonarData(
     let sonarDataMap;
     try {
       progressCallback('sonar', 60, 'Fetching SonarCloud data...');
+      
+      if (!sonarcloudOrg) {
+        throw new Error("SonarCloud organization slug not provided");
+      }
+      
       sonarDataMap = await fetchSonarCloudData(
         sonarcloudOrg,
         detailedRepos
       );
-      progressCallback('sonar', 80, `Retrieved SonarCloud data for ${sonarDataMap.size} repositories`);
-      logger.info("SonarCloud data fetched", { count: sonarDataMap.size }, userId, 'sync');
+      
+      const foundCount = sonarDataMap.size;
+      progressCallback('sonar', 80, `Retrieved SonarCloud data for ${foundCount} repositories (${foundCount} out of ${detailedRepos.length} found)`);
+      
+      if (foundCount === 0) {
+        logger.warn("No SonarCloud data found for any repository", { 
+          organization: sonarcloudOrg,
+          repoCount: detailedRepos.length 
+        }, userId, 'sync');
+        addError(`No SonarCloud data found. Verify your SonarCloud organization slug (${sonarcloudOrg}) is correct and projects exist.`);
+      } else {
+        logger.info("SonarCloud data fetched", { count: foundCount }, userId, 'sync');
+      }
     } catch (error) {
       logger.error("Failed to fetch SonarCloud data", { error }, userId, 'sync');
-      addError("Failed to fetch SonarCloud data");
+      addError(`Failed to fetch SonarCloud data: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Continue with empty sonar data
       sonarDataMap = new Map();
     }
@@ -41,7 +57,7 @@ export async function fetchAndSaveSonarData(
       progressCallback('sonar', 90, 'SonarCloud data saved successfully');
     } catch (error) {
       logger.error("Failed to save SonarCloud data to database", { error }, userId, 'sync');
-      addError("Failed to save SonarCloud data to database");
+      addError(`Failed to save SonarCloud data to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
     return sonarDataMap;

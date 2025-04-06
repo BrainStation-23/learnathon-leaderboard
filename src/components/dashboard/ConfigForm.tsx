@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const configSchema = z.object({
   github_org: z.string().min(1, "GitHub organization name is required"),
@@ -125,8 +126,14 @@ export default function ConfigForm() {
                   <FormControl>
                     <Input placeholder="your-sonar-org" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    The slug/key of your SonarCloud organization
+                  <FormDescription className="space-y-1">
+                    <p>The key/slug of your SonarCloud organization (found in the URL or organization settings).</p>
+                    <Alert className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Make sure this matches exactly with the organization name in SonarCloud URLs and project keys.
+                      </AlertDescription>
+                    </Alert>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

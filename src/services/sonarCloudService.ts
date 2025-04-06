@@ -1,5 +1,6 @@
 
 import { SonarCloudData, SonarMetrics, GitHubRepoData } from "@/types";
+import { logger } from "@/services/logService";
 
 export async function fetchSonarCloudData(
   orgSlug: string,
@@ -12,32 +13,56 @@ export async function fetchSonarCloudData(
     await Promise.all(
       repos.map(async (repo) => {
         try {
-          // Assume project key is org_repo-name (common convention)
-          const projectKey = `${orgSlug}_${repo.name.replace(/[^a-zA-Z0-9-_]/g, "-")}`;
+          // Try different project key formats
+          // Format 1: org_repo-name (common convention)
+          // Format 2: org-repo-name (alternative format)
+          // Format 3: repo-name (some organizations do this)
+          const possibleProjectKeys = [
+            `${orgSlug}_${repo.name.replace(/[^a-zA-Z0-9-_]/g, "-")}`,
+            `${orgSlug}-${repo.name.replace(/[^a-zA-Z0-9-_]/g, "-")}`,
+            `${repo.name.replace(/[^a-zA-Z0-9-_]/g, "-")}`
+          ];
           
-          // Fetch core metrics
-          const metricsResponse = await fetch(
-            `https://sonarcloud.io/api/measures/component?component=${projectKey}&metricKeys=ncloc,coverage,bugs,vulnerabilities,code_smells,sqale_index,cognitive_complexity`,
-            {
-              headers: {
-                Accept: "application/json",
-              },
-            }
-          );
+          let metricsData = null;
+          let usedKey = '';
+          
+          // Try each project key format until we find one that works
+          for (const projectKey of possibleProjectKeys) {
+            try {
+              // Fetch core metrics
+              const metricsResponse = await fetch(
+                `https://sonarcloud.io/api/measures/component?component=${projectKey}&metricKeys=ncloc,coverage,bugs,vulnerabilities,code_smells,sqale_index,cognitive_complexity`,
+                {
+                  headers: {
+                    Accept: "application/json",
+                  },
+                }
+              );
 
-          if (!metricsResponse.ok) {
-            // If project isn't found in SonarCloud, we'll skip it
-            return;
+              if (metricsResponse.ok) {
+                metricsData = await metricsResponse.json();
+                usedKey = projectKey;
+                logger.info(`Found SonarCloud project using key format: ${projectKey}`, {}, 'sonarcloud');
+                break; // Found a working key format, stop trying others
+              }
+            } catch (error) {
+              // Continue to the next key format on error
+              console.error(`Failed with key format ${projectKey}:`, error);
+            }
           }
 
-          const metricsData = await metricsResponse.json();
-          const metrics = extractMetrics(metricsData);
-
-          sonarDataMap.set(repo.name, {
-            project_key: projectKey,
-            name: repo.name,
-            metrics,
-          });
+          if (metricsData) {
+            const metrics = extractMetrics(metricsData);
+            
+            sonarDataMap.set(repo.name, {
+              project_key: usedKey,
+              name: repo.name,
+              metrics,
+            });
+          } else {
+            // Failed with all key formats, log it
+            console.log(`No SonarCloud data found for repository: ${repo.name}`);
+          }
         } catch (error) {
           console.error(`Error fetching SonarCloud data for ${repo.name}:`, error);
         }
