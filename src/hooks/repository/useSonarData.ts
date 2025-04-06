@@ -1,6 +1,6 @@
 
 import { fetchSonarCloudData } from "@/services/sonarCloudService";
-import { saveSonarData } from "@/services/supabaseService";
+import { saveSonarData } from "@/services/sonar/sonarService";
 import { logger } from "@/services/logService";
 import { GitHubRepoData } from "@/types";
 import { ProgressCallback } from "./types";

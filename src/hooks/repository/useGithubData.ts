@@ -1,7 +1,7 @@
 
 import { useConfig } from "@/context/ConfigContext";
 import { fetchRepositoriesForOrg, fetchRepoDetails } from "@/services/githubService";
-import { saveRepositoryData } from "@/services/supabaseService";
+import { saveRepositoryData } from "@/services/repository/repositoryService";
 import { logger } from "@/services/logService";
 import { ProgressCallback } from "./types";
 

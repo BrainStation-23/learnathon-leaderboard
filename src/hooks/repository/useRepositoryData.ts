@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { useConfig } from "@/context/ConfigContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { fetchDashboardData } from "@/services/supabaseService";
+import { fetchDashboardData } from "@/services/dashboard/dashboardService";
 import { TeamDashboardData } from "@/types";
 import { logger } from "@/services/logService";
 import { useProgressTracking } from "./useProgressTracking";
