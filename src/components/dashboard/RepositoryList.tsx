@@ -1,10 +1,12 @@
 
 import { useState, useEffect } from "react";
 import { useConfig } from "@/context/ConfigContext";
+import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { fetchRepositoriesForOrg, fetchRepoDetails } from "@/services/githubService";
 import { fetchSonarCloudData } from "@/services/sonarCloudService";
-import { GitHubRepoData, TeamDashboardData } from "@/types";
+import { saveRepositoryData, saveSonarData, fetchDashboardData } from "@/services/supabaseService";
+import { TeamDashboardData } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,12 +16,35 @@ import { Progress } from "@/components/ui/progress";
 
 export default function RepositoryList() {
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState<TeamDashboardData[]>([]);
   const { config, isConfigured } = useConfig();
+  const { user } = useAuth();
   const { toast } = useToast();
 
+  // Load data from Supabase
+  const loadData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const data = await fetchDashboardData();
+      setDashboardData(data);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      toast({
+        title: "Error loading data",
+        description: "Failed to retrieve dashboard data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch and sync data from GitHub and SonarCloud
   const fetchData = async () => {
-    if (!isConfigured) {
+    if (!isConfigured || !user) {
       toast({
         title: "Configuration required",
         description: "Please configure your GitHub and SonarCloud settings first.",
@@ -28,7 +53,7 @@ export default function RepositoryList() {
       return;
     }
 
-    setLoading(true);
+    setRefreshing(true);
     try {
       // Fetch GitHub repositories
       const repos = await fetchRepositoriesForOrg(
@@ -49,30 +74,35 @@ export default function RepositoryList() {
         detailedRepos
       );
 
-      // Combine the data
-      const combined = detailedRepos.map((repo) => ({
-        repoData: repo,
-        sonarData: sonarDataMap.get(repo.name),
-      }));
+      // Save data to Supabase
+      await saveRepositoryData(detailedRepos, user.id);
+      await saveSonarData(sonarDataMap, user.id);
 
-      setDashboardData(combined);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+      // Reload data from Supabase
+      await loadData();
+
       toast({
-        title: "Error fetching data",
-        description: "Failed to retrieve repository data. Please check your configuration and try again.",
+        title: "Data refreshed",
+        description: "Repository data has been successfully updated",
+      });
+    } catch (error) {
+      console.error("Error refreshing dashboard data:", error);
+      toast({
+        title: "Error refreshing data",
+        description: "Failed to update repository data. Please check your configuration.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  // Initial data load
   useEffect(() => {
-    if (isConfigured) {
-      fetchData();
+    if (user) {
+      loadData();
     }
-  }, [isConfigured]);
+  }, [user]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -81,6 +111,19 @@ export default function RepositoryList() {
       day: "numeric",
     });
   };
+
+  if (!user) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication Required</CardTitle>
+          <CardDescription>
+            Please log in to view repository data.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   if (!isConfigured) {
     return (
@@ -104,17 +147,30 @@ export default function RepositoryList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Repositories</h2>
-        <Button 
-          onClick={fetchData} 
-          disabled={loading} 
-          className="flex items-center gap-2"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Refresh Data"
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={loadData} 
+            variant="outline"
+            disabled={loading || refreshing}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Load Data"
+            )}
+          </Button>
+          <Button 
+            onClick={fetchData} 
+            disabled={loading || refreshing} 
+            className="flex items-center gap-2"
+          >
+            {refreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Refresh from GitHub"
+            )}
+          </Button>
+        </div>
       </div>
 
       {loading && dashboardData.length === 0 ? (
@@ -127,11 +183,11 @@ export default function RepositoryList() {
           <CardHeader>
             <CardTitle>No repositories found</CardTitle>
             <CardDescription>
-              No repositories were found in the GitHub organization {config.github_org}.
+              No repositories were found for the GitHub organization {config.github_org}.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Try refreshing the data or check your configuration settings.</p>
+            <p>Try refreshing the data from GitHub or check your configuration settings.</p>
           </CardContent>
         </Card>
       ) : (

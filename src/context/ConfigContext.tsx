@@ -1,6 +1,9 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { ProjectConfig } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 interface ConfigContextType {
   config: ProjectConfig;
@@ -26,21 +29,49 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<ProjectConfig>(defaultConfig);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
 
-  // Load config from localStorage for now
-  // Later this will be moved to Supabase
+  // Load config from Supabase when user changes
   useEffect(() => {
     const loadConfig = async () => {
+      if (!user) {
+        setConfig(defaultConfig);
+        setIsConfigured(false);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
       try {
-        // We'll replace this with Supabase storage later
-        const storedConfig = localStorage.getItem("hackathon-config");
-        if (storedConfig) {
-          const parsedConfig = JSON.parse(storedConfig);
-          setConfig(parsedConfig);
+        const { data: configData, error } = await supabase
+          .from("configurations")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (error && error.code !== "PGRST116") {
+          // PGRST116 is the error code for no rows returned
+          console.error("Failed to load configuration:", error);
+          toast({
+            title: "Error loading configuration",
+            description: "Please try again or reconfigure your settings.",
+            variant: "destructive",
+          });
+        }
+
+        if (configData) {
+          const userConfig: ProjectConfig = {
+            github_org: configData.github_org,
+            github_pat: configData.github_pat,
+            sonarcloud_org: configData.sonarcloud_org,
+          };
+          
+          setConfig(userConfig);
           setIsConfigured(
-            !!parsedConfig.github_org && 
-            !!parsedConfig.github_pat && 
-            !!parsedConfig.sonarcloud_org
+            !!userConfig.github_org && 
+            !!userConfig.github_pat && 
+            !!userConfig.sonarcloud_org
           );
         }
       } catch (error) {
@@ -51,12 +82,64 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadConfig();
-  }, []);
+  }, [user, toast]);
 
   const updateConfig = async (newConfig: ProjectConfig) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to save configuration.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      // We'll replace this with Supabase storage later
-      localStorage.setItem("hackathon-config", JSON.stringify(newConfig));
+      // Check if config already exists for this user
+      const { data: existingConfig } = await supabase
+        .from("configurations")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      let result;
+      
+      if (existingConfig) {
+        // Update existing config
+        result = await supabase
+          .from("configurations")
+          .update({
+            github_org: newConfig.github_org,
+            github_pat: newConfig.github_pat,
+            sonarcloud_org: newConfig.sonarcloud_org,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user.id);
+      } else {
+        // Insert new config
+        result = await supabase
+          .from("configurations")
+          .insert({
+            user_id: user.id,
+            github_org: newConfig.github_org,
+            github_pat: newConfig.github_pat,
+            sonarcloud_org: newConfig.sonarcloud_org,
+          });
+      }
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      // Log audit event
+      await supabase.rpc('log_audit_event', {
+        p_user_id: user.id,
+        p_action: existingConfig ? 'update_config' : 'create_config',
+        p_entity_type: 'configuration',
+        p_entity_id: null,
+        p_details: { github_org: newConfig.github_org, sonarcloud_org: newConfig.sonarcloud_org }
+      });
+
       setConfig(newConfig);
       setIsConfigured(
         !!newConfig.github_org && 

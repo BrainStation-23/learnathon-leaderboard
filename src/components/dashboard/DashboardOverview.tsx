@@ -1,7 +1,11 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/context/AuthContext";
 import { useConfig } from "@/context/ConfigContext";
+import { useToast } from "@/hooks/use-toast";
+import { fetchDashboardData } from "@/services/supabaseService";
+import { TeamDashboardData } from "@/types";
 import { 
   GitCommit, 
   Users, 
@@ -11,6 +15,7 @@ import {
   Loader2
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import {
   AreaChart,
   Area,
@@ -24,12 +29,17 @@ import {
   Cell,
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 export default function DashboardOverview() {
   const { config, isConfigured } = useConfig();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<TeamDashboardData[]>([]);
   
-  // Sample stats - will be replaced with real data from GitHub/SonarCloud
+  // Stats derived from dashboardData
   const [stats, setStats] = useState({
     totalRepos: 0,
     totalContributors: 0,
@@ -40,54 +50,99 @@ export default function DashboardOverview() {
     totalCodeSmells: 0,
   });
 
-  // Mock data for charts
-  const repoQualityData = [
-    { name: "TeamA", quality: 87 },
-    { name: "TeamB", quality: 74 },
-    { name: "TeamC", quality: 92 },
-    { name: "TeamD", quality: 63 },
-    { name: "TeamE", quality: 78 },
-  ];
-
-  const commitActivityData = [
-    { day: "Mon", commits: 12 },
-    { day: "Tue", commits: 19 },
-    { day: "Wed", commits: 28 },
-    { day: "Thu", commits: 41 },
-    { day: "Fri", commits: 34 },
-    { day: "Sat", commits: 10 },
-    { day: "Sun", commits: 8 },
-  ];
-
-  const issueDistribution = [
-    { name: "Bugs", value: 15, color: "#ef4444" },
-    { name: "Vulnerabilities", value: 8, color: "#f97316" },
-    { name: "Code Smells", value: 27, color: "#3b82f6" },
-  ];
-
-  useEffect(() => {
-    // Simulate loading data
-    if (isConfigured) {
-      const timer = setTimeout(() => {
-        // This would be actual data fetching in a real app
-        setStats({
-          totalRepos: 12,
-          totalContributors: 48,
-          totalCommits: 1245,
-          avgCodeCoverage: 72,
-          totalBugs: 15,
-          totalVulnerabilities: 8,
-          totalCodeSmells: 27,
-        });
-        setLoading(false);
-      }, 1500);
+  // Fetch data from Supabase
+  const loadData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const data = await fetchDashboardData();
+      setDashboardData(data);
       
-      return () => clearTimeout(timer);
-    } else {
+      // Calculate stats
+      const totalRepos = data.length;
+      let totalContributors = 0;
+      let totalCommits = 0;
+      let totalCoverage = 0;
+      let coverageCount = 0;
+      let totalBugs = 0;
+      let totalVulnerabilities = 0;
+      let totalCodeSmells = 0;
+
+      data.forEach(item => {
+        totalContributors += item.repoData.contributors_count || 0;
+        totalCommits += item.repoData.commits_count || 0;
+        
+        if (item.sonarData) {
+          if (item.sonarData.metrics.coverage) {
+            totalCoverage += item.sonarData.metrics.coverage;
+            coverageCount++;
+          }
+          totalBugs += item.sonarData.metrics.bugs || 0;
+          totalVulnerabilities += item.sonarData.metrics.vulnerabilities || 0;
+          totalCodeSmells += item.sonarData.metrics.code_smells || 0;
+        }
+      });
+
+      setStats({
+        totalRepos,
+        totalContributors,
+        totalCommits,
+        avgCodeCoverage: coverageCount > 0 ? Math.round(totalCoverage / coverageCount) : 0,
+        totalBugs,
+        totalVulnerabilities,
+        totalCodeSmells,
+      });
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      toast({
+        title: "Error loading data",
+        description: "Failed to retrieve dashboard data",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
     }
-  }, [isConfigured]);
+  };
+
+  // Initial data load
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  // Generated commit activity data based on day of week
+  const commitActivityData = [
+    { day: "Mon", commits: Math.floor(stats.totalCommits * 0.18) },
+    { day: "Tue", commits: Math.floor(stats.totalCommits * 0.22) },
+    { day: "Wed", commits: Math.floor(stats.totalCommits * 0.25) },
+    { day: "Thu", commits: Math.floor(stats.totalCommits * 0.20) },
+    { day: "Fri", commits: Math.floor(stats.totalCommits * 0.10) },
+    { day: "Sat", commits: Math.floor(stats.totalCommits * 0.03) },
+    { day: "Sun", commits: Math.floor(stats.totalCommits * 0.02) },
+  ];
+
+  // Issue distribution data
+  const issueDistribution = [
+    { name: "Bugs", value: stats.totalBugs, color: "#ef4444" },
+    { name: "Vulnerabilities", value: stats.totalVulnerabilities, color: "#f97316" },
+    { name: "Code Smells", value: stats.totalCodeSmells, color: "#3b82f6" },
+  ];
   
+  if (!user) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication Required</CardTitle>
+          <CardDescription>
+            Please log in to view dashboard data.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   if (!isConfigured) {
     return (
       <Card>
@@ -98,9 +153,9 @@ export default function DashboardOverview() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            Go to the Settings page to set up your organization credentials.
-          </p>
+          <Button onClick={() => navigate('/settings')}>
+            Configure Dashboard
+          </Button>
         </CardContent>
       </Card>
     );
@@ -149,10 +204,15 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-bold">Dashboard Overview</h2>
-      <p className="text-muted-foreground">
-        Overview of {config.github_org} organization with SonarCloud analysis
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Dashboard Overview</h2>
+          <p className="text-muted-foreground">
+            Overview of {config.github_org} organization with SonarCloud analysis
+          </p>
+        </div>
+        <Button onClick={loadData} variant="outline">Refresh Data</Button>
+      </div>
       
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -250,7 +310,7 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {repoQualityData.length}
+              {dashboardData.filter(item => item.sonarData).length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Teams with active SonarCloud analysis
@@ -263,7 +323,7 @@ export default function DashboardOverview() {
         <Card>
           <CardHeader>
             <CardTitle>Commit Activity</CardTitle>
-            <CardDescription>Last 7 days</CardDescription>
+            <CardDescription>Estimated distribution</CardDescription>
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-72">
