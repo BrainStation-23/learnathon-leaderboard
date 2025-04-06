@@ -7,12 +7,13 @@ import useOverviewStats from "@/hooks/dashboard/useOverviewStats";
 import useDashboardData from "@/hooks/dashboard/useDashboardData";
 
 // Import components
-import StatsCards from "./StatsCards";
-import CommitActivityChart from "./CommitActivityChart";
-import IssueDistributionChart from "./IssueDistributionChart";
-import DashboardHeader from "./DashboardHeader";
-import LoadingState from "./LoadingState";
-import AuthRequiredCard from "./AuthRequiredCard";
+import StatsCards from "./overview/StatsCards";
+import CommitActivityHeatMap from "./overview/CommitActivityHeatMap";
+import DashboardHeader from "./overview/DashboardHeader";
+import LoadingState from "./overview/LoadingState";
+import AuthRequiredCard from "./overview/AuthRequiredCard";
+import ContributorStatsCards from "./overview/ContributorStatsCards";
+import StackDistributionTable from "./overview/StackDistributionTable";
 
 export default function DashboardOverview() {
   const { isConfigured } = useConfig();
@@ -52,9 +53,18 @@ export default function DashboardOverview() {
       
       <StatsCards stats={stats} />
       
+      <ContributorStatsCards 
+        reposWithOneActiveContributor={stats.reposWithOneActiveContributor}
+        reposWithTwoActiveContributors={stats.reposWithTwoActiveContributors}
+        reposWithThreeActiveContributors={stats.reposWithThreeActiveContributors}
+        reposWithJobOffer={stats.reposWithJobOffer}
+        reposDroppedOut={stats.reposDroppedOut}
+        reposWithNoRecentActivity={stats.reposWithNoRecentActivity}
+      />
+      
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <CommitActivityChart commitActivityData={chartData.commitActivityData} />
-        <IssueDistributionChart issueDistribution={chartData.issueDistribution} />
+        <CommitActivityHeatMap monthlyCommitData={chartData.monthlyCommitData} />
+        <StackDistributionTable distribution={stats.stackDistribution} />
       </div>
     </div>
   );

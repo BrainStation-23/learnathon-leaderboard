@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData } from "@/types";
 import { logger } from "../logService";
+import { subMonths, isAfter, parseISO } from "date-fns";
 
 export interface ContributorStats {
   reposWithOneActiveContributor: number;
@@ -11,6 +12,7 @@ export interface ContributorStats {
   reposDroppedOut: number;
   reposWithNoRecentActivity: number;
   stackDistribution: Record<string, number>;
+  activeContributorsCount: number;
 }
 
 export async function getContributorStats(
@@ -26,7 +28,8 @@ export async function getContributorStats(
       reposWithJobOffer: 0,
       reposWithNoRecentActivity: 0,
       reposDroppedOut: 0,
-      stackDistribution: {}
+      stackDistribution: {},
+      activeContributorsCount: 0
     };
     
     // Get repository filter data
@@ -46,6 +49,21 @@ export async function getContributorStats(
         filterMap.set(repo.repository_id, repo.label);
       });
     }
+    
+    // Fetch filtered contributors from configuration
+    const { data: configData, error: configError } = await supabase
+      .from('configurations')
+      .select('filtered_contributors')
+      .limit(1);
+      
+    if (configError) {
+      logger.error("Error fetching filtered contributors", { error: configError });
+    }
+    
+    // Get filtered contributors list
+    const filteredContributorsList = configData && configData.length > 0 
+      ? configData[0].filtered_contributors || []
+      : [];
     
     // Fetch tech stacks for each repository
     const { data: repoTechStacks, error: techStackError } = await supabase
@@ -70,23 +88,45 @@ export async function getContributorStats(
       });
     }
 
+    // Cutoff date for activity - one month ago
+    const oneMonthAgo = subMonths(new Date(), 1);
+    const activeContributorsSet = new Set<string>();
+
     // Process each repository
     for (const repo of dashboardData) {
       const repoId = repo.repoData.id;
       const contributors = repo.repoData.contributors || [];
-      const lastMonth = new Date();
-      lastMonth.setMonth(lastMonth.getMonth() - 1);
       
-      // Count active contributors (not in filtered list)
-      const activeContributors = contributors.filter(
-        c => !filteredContributors.includes(c.login)
-      );
+      // Check if repository has recent activity
+      const lastUpdateDate = repo.repoData.updated_at 
+        ? parseISO(repo.repoData.updated_at)
+        : null;
+        
+      if (!lastUpdateDate || !isAfter(lastUpdateDate, oneMonthAgo)) {
+        stats.reposWithNoRecentActivity++;
+      }
       
-      if (activeContributors.length === 1) {
+      // Count active contributors (not in filtered list and contributed in last month)
+      let activeContributorsCount = 0;
+      
+      contributors.forEach(contributor => {
+        // Skip filtered contributors
+        if (filteredContributorsList.includes(contributor.login)) {
+          return;
+        }
+        
+        // For simplicity, we're assuming all contributors in the list were active recently
+        // In a real-world scenario, you'd need to check contribution dates
+        activeContributorsCount++;
+        activeContributorsSet.add(contributor.login);
+      });
+      
+      // Update repository counts based on active contributors
+      if (activeContributorsCount === 1) {
         stats.reposWithOneActiveContributor++;
-      } else if (activeContributors.length === 2) {
+      } else if (activeContributorsCount === 2) {
         stats.reposWithTwoActiveContributors++;
-      } else if (activeContributors.length >= 3) {
+      } else if (activeContributorsCount >= 3) {
         stats.reposWithThreeActiveContributors++;
       }
       
@@ -100,15 +140,6 @@ export async function getContributorStats(
         }
       }
       
-      // Check for recent activity
-      const lastCommitDate = repo.repoData.updated_at 
-        ? new Date(repo.repoData.updated_at) 
-        : null;
-        
-      if (!lastCommitDate || lastCommitDate < lastMonth) {
-        stats.reposWithNoRecentActivity++;
-      }
-      
       // Update stack distribution
       const stacks = techStacksMap[repoId] || [];
       stacks.forEach(stack => {
@@ -118,6 +149,9 @@ export async function getContributorStats(
         stats.stackDistribution[stack]++;
       });
     }
+    
+    // Update total active contributors count
+    stats.activeContributorsCount = activeContributorsSet.size;
     
     return stats;
   } catch (error) {

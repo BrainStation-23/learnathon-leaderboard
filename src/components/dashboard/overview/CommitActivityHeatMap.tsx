@@ -11,11 +11,11 @@ interface CommitActivityHeatMapProps {
 
 export default function CommitActivityHeatMap({ monthlyCommitData }: CommitActivityHeatMapProps) {
   const today = new Date();
-  const oneYearAgo = subMonths(today, 11);
+  const fiveMonthsAgo = subMonths(today, 4); // For 5 months total (current + 4 previous)
   
-  // Generate all months in the past year for complete heatmap
+  // Generate all months in the past 5 months for complete heatmap
   const allMonths = eachMonthOfInterval({ 
-    start: oneYearAgo, 
+    start: fiveMonthsAgo, 
     end: today 
   }).map(date => format(date, 'MMM'));
   
@@ -35,7 +35,7 @@ export default function CommitActivityHeatMap({ monthlyCommitData }: CommitActiv
           <div>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-hackathon-600" />
-              Commit Activity (Last 12 Months)
+              Commit Activity (Last 5 Months)
             </CardTitle>
             <CardDescription>Monthly distribution</CardDescription>
           </div>
