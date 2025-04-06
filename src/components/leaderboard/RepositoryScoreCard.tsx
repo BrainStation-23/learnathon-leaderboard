@@ -2,11 +2,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LeaderboardItem } from "@/types/leaderboard";
-import { ScoreProgressBar } from "./ScoreProgressBar";
 import { formatDistanceToNow } from "date-fns";
 import { RepositoryContributors } from "./RepositoryContributors";
 import { LinesOfCodeIndicator } from "./LinesOfCodeIndicator";
 import { Separator } from "@/components/ui/separator";
+import { MetricsRadarChart } from "./MetricsRadarChart";
+import { Radar } from "lucide-react";
 
 interface RepositoryScoreCardProps {
   item: LeaderboardItem;
@@ -59,43 +60,14 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
           </>
         )}
         
-        <ScoreProgressBar 
-          label="Code Coverage" 
-          score={item.coverageScore} 
-          maxScore={20}
-          value={item.coverage}
-          valueUnit="%"
-        />
-        <ScoreProgressBar 
-          label="Bugs" 
-          score={item.bugsScore} 
-          maxScore={15}
-          value={item.bugs}
-        />
-        <ScoreProgressBar 
-          label="Vulnerabilities" 
-          score={item.vulnerabilitiesScore} 
-          maxScore={15}
-          value={item.vulnerabilities}
-        />
-        <ScoreProgressBar 
-          label="Code Smells" 
-          score={item.codeSmellsScore} 
-          maxScore={20}
-          value={item.codeSmells}
-        />
-        <ScoreProgressBar 
-          label="Technical Debt" 
-          score={item.technicalDebtScore} 
-          maxScore={20}
-          value={item.technicalDebt}
-        />
-        <ScoreProgressBar 
-          label="Code Complexity" 
-          score={item.complexityScore} 
-          maxScore={10}
-          value={item.complexity}
-        />
+        {/* Radar Chart Title */}
+        <div className="flex items-center gap-2 mt-2">
+          <Radar className="h-5 w-5 text-muted-foreground" />
+          <h3 className="font-medium">Code Quality Metrics</h3>
+        </div>
+        
+        {/* Radar Chart */}
+        <MetricsRadarChart item={item} />
         
         <div className="text-xs text-muted-foreground text-right pt-2">
           Last updated: {formatDistanceToNow(lastUpdatedDate, { addSuffix: true })}
