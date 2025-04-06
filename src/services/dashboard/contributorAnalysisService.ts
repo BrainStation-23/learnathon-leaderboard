@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData } from "@/types";
 import { logger } from "../logService";
-import { subMonths, isAfter, parseISO } from "date-fns";
+import { subMonths, isAfter, parseISO, isBefore } from "date-fns";
 
 export interface ContributorStats {
   reposWithOneActiveContributor: number;
@@ -102,7 +102,7 @@ export async function getContributorStats(
         ? parseISO(repo.repoData.updated_at)
         : null;
         
-      if (!lastUpdateDate || !isAfter(lastUpdateDate, oneMonthAgo)) {
+      if (!lastUpdateDate || isBefore(lastUpdateDate, oneMonthAgo)) {
         stats.reposWithNoRecentActivity++;
       }
       

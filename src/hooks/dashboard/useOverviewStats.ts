@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { TeamDashboardData } from "@/types";
 import { getContributorStats, ContributorStats } from "@/services/dashboard/contributorAnalysisService";
-import { format, startOfMonth, subMonths, isAfter } from "date-fns";
+import { format, startOfMonth, subMonths, isAfter, parseISO } from "date-fns";
 
 export interface Stats {
   totalRepos: number;
