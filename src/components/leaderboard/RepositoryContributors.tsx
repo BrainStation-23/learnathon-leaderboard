@@ -22,7 +22,8 @@ export function RepositoryContributors({ contributors, totalCommits }: Repositor
     console.log("RepositoryContributors rendering with:", { 
       contributorsCount: contributors?.length, 
       contributorNames: contributors?.map(c => c.login),
-      totalCommits 
+      totalCommits,
+      averageCommitsPerContributor: contributors?.length ? (totalCommits || 0) / contributors.length : 0
     });
   }, [contributors, totalCommits]);
 

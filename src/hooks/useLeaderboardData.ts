@@ -30,7 +30,6 @@ export function useLeaderboardData() {
   const [loading, setLoading] = useState(true);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [filteredContributors, setFilteredContributors] = useState<string[]>([]);
 
   // Function to fetch filter settings
   const fetchFilterSettings = async () => {
@@ -46,21 +45,22 @@ export function useLeaderboardData() {
       
       if (error) {
         console.error("Error fetching filtered contributors:", error);
-        return;
+        return [];
       }
       
       console.log("Filtered contributors data:", data);
       
       if (data && data.filtered_contributors) {
-        console.log("Setting filtered contributors:", data.filtered_contributors);
-        setFilteredContributors(data.filtered_contributors);
+        const filteredList = data.filtered_contributors;
+        console.log("Setting filtered contributors:", filteredList);
+        return filteredList;
       } else {
         console.log("No filtered contributors found or empty array");
-        setFilteredContributors([]);
+        return [];
       }
     } catch (err) {
       console.error("Error in fetchFilterSettings:", err);
-      // We don't set an error state here as this is optional enhancement
+      return [];
     }
   };
 
@@ -70,8 +70,8 @@ export function useLeaderboardData() {
     
     try {
       // Fetch filter settings first to ensure we have the latest filters
-      await fetchFilterSettings();
-      console.log("After fetchFilterSettings, filteredContributors:", filteredContributors);
+      const filteredContributorsList = await fetchFilterSettings();
+      console.log("Filtered contributors list:", filteredContributorsList);
       
       // Use the function that returns repositories with metrics
       const { data: reposData, error: repoError } = await supabase
@@ -119,7 +119,7 @@ export function useLeaderboardData() {
       }, {} as Record<string, GitHubContributor[]>);
 
       console.log("Contributors map:", contributorsMap);
-      console.log("Current filtered contributors state:", filteredContributors);
+      console.log("Current filtered contributors list:", filteredContributorsList);
 
       // Process the data to calculate scores
       const leaderboardItems = reposData
@@ -141,22 +141,18 @@ export function useLeaderboardData() {
           let allContributors = contributorsMap[item.id] || [];
           console.log(`Repository ${item.name} - All contributors:`, allContributors.map(c => c.login));
           
-          // Filter out contributors based on the filtered_contributors list
-          let filteredContributorsList = [...filteredContributors]; // Create a copy to avoid state update issues
           console.log(`Repository ${item.name} - Filtering out:`, filteredContributorsList);
           
+          // Filter out contributors based on the filtered_contributors list
           let contributors = allContributors;
-          if (filteredContributorsList.length > 0) {
+          if (filteredContributorsList && filteredContributorsList.length > 0) {
             contributors = allContributors.filter(
-              contributor => {
-                const shouldInclude = !filteredContributorsList.includes(contributor.login);
-                console.log(`Contributor ${contributor.login} - Include: ${shouldInclude}`);
-                return shouldInclude;
-              }
+              contributor => !filteredContributorsList.includes(contributor.login)
             );
+            console.log(`Repository ${item.name} - After filtering:`, contributors.map(c => c.login));
+          } else {
+            console.log(`Repository ${item.name} - No filtering applied, using all contributors`);
           }
-          
-          console.log(`Repository ${item.name} - After filtering:`, contributors.map(c => c.login));
           
           // Calculate the commit count based on filtered contributors
           const totalCommits = contributors.reduce(

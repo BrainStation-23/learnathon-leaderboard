@@ -17,7 +17,10 @@ export function LeaderboardGrid() {
           name: item.repositoryName,
           contributors: item.contributors?.map(c => c.login) || [],
           contributorsCount: item.contributors?.length || 0,
-          totalCommits: item.commitsCount
+          totalCommits: item.commitsCount,
+          // Additional debug information
+          filteredContributorsApplied: item.contributors?.length < 
+            (item.contributors?.length || 0 + (item.commitsCount || 0))
         }))
       });
     }
