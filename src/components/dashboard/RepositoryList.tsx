@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, RefreshCw } from "lucide-react";
-import useRepositoryData from "@/hooks/useRepositoryData";
+import useRepositoryData from "@/hooks/repository/useRepositoryData";
 import ProgressTracker from "./ProgressTracker";
 import ErrorDisplay from "./ErrorDisplay";
 import RepositoryCard from "./RepositoryCard";
