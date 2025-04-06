@@ -8,6 +8,7 @@ import { LinesOfCodeIndicator } from "./LinesOfCodeIndicator";
 import { Separator } from "@/components/ui/separator";
 import { MetricsRadarChart } from "./MetricsRadarChart";
 import { Radar, Code2 } from "lucide-react";
+import { TechStackIcons } from "./TechStackIcons";
 
 interface RepositoryScoreCardProps {
   item: LeaderboardItem;
@@ -37,16 +38,10 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
             </div>
             <CardTitle className="text-xl">{item.repositoryName}</CardTitle>
             
-            {/* Display Tech Stacks */}
-            {item.techStacks && item.techStacks.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {item.techStacks.map((stack, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {stack}
-                  </Badge>
-                ))}
-              </div>
-            )}
+            {/* Display Tech Stack Icons */}
+            <div className="mt-2">
+              <TechStackIcons techStacks={item.techStacks} />
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold">{item.totalScore}</div>
