@@ -46,7 +46,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
       try {
         const { data: configData, error } = await supabase
           .from("configurations")
-          .select("*")
+          .select("github_org, github_pat, sonarcloud_org")
           .eq("user_id", user.id)
           .single();
 

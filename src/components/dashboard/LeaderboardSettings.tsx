@@ -55,6 +55,7 @@ export default function LeaderboardSettings() {
           console.error("Error fetching filtered contributors:", filteredError);
         }
         
+        // Check if filteredData exists and has filtered_contributors
         const filteredContributors = filteredData?.filtered_contributors || [];
         
         // Merge data
@@ -102,7 +103,9 @@ export default function LeaderboardSettings() {
         // Update existing config
         result = await supabase
           .from('configurations')
-          .update({ filtered_contributors: filteredLogins })
+          .update({ 
+            filtered_contributors: filteredLogins 
+          })
           .eq('user_id', user.id);
       } else {
         // Create new config (this should not happen typically as it's created when setting GitHub/SonarCloud)

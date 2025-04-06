@@ -43,8 +43,8 @@ export function useLeaderboardData() {
         .limit(1)
         .single();
       
-      if (!error && data?.filtered_contributors) {
-        setFilteredContributors(data.filtered_contributors);
+      if (!error && data && data.filtered_contributors) {
+        setFilteredContributors(data.filtered_contributors as string[]);
       }
     } catch (err) {
       console.error("Error fetching filter settings:", err);

@@ -42,6 +42,7 @@ export type Database = {
       configurations: {
         Row: {
           created_at: string
+          filtered_contributors: string[] | null
           github_org: string
           github_pat: string
           id: string
@@ -51,6 +52,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          filtered_contributors?: string[] | null
           github_org: string
           github_pat: string
           id?: string
@@ -60,6 +62,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          filtered_contributors?: string[] | null
           github_org?: string
           github_pat?: string
           id?: string

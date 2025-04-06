@@ -49,6 +49,7 @@ export interface ProjectConfig {
   github_org: string;
   github_pat: string;
   sonarcloud_org: string;
+  filtered_contributors?: string[];
 }
 
 // Dashboard combined data
