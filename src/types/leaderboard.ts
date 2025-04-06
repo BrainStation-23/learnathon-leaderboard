@@ -21,4 +21,5 @@ export interface LeaderboardItem {
   lastUpdated: string;
   contributors?: GitHubContributor[];
   commitsCount?: number;
+  techStacks?: string[];
 }

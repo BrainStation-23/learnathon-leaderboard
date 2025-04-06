@@ -61,6 +61,31 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
 
     console.log("Contributors map:", contributorsMap);
     
+    // Fetch tech stacks for each repository
+    const { data: repoTechStacks, error: techStackError } = await supabase
+      .from('repository_tech_stacks')
+      .select(`
+        repository_id,
+        tech_stack:tech_stack_id(id, name)
+      `);
+    
+    if (techStackError) {
+      logger.error("Error fetching tech stacks:", { error: techStackError });
+    }
+    
+    // Create tech stacks map
+    const techStacksMap: Record<string, string[]> = {};
+    if (repoTechStacks) {
+      repoTechStacks.forEach((item: any) => {
+        if (!techStacksMap[item.repository_id]) {
+          techStacksMap[item.repository_id] = [];
+        }
+        techStacksMap[item.repository_id].push(item.tech_stack.name);
+      });
+    }
+    
+    console.log("Tech stacks map:", techStacksMap);
+    
     // Process the data to calculate scores
     const leaderboardItems = reposData
       .filter(item => item.sonar_project_key) // Only include repos with Sonar data
@@ -68,7 +93,13 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
         // Get all contributors for this repository
         let allContributors = contributorsMap[item.id] || [];
         
-        return mapToLeaderboardItem(item, allContributors, filteredContributorsList);
+        // Get tech stacks for this repository
+        const techStacks = techStacksMap[item.id] || [];
+        
+        return {
+          ...mapToLeaderboardItem(item, allContributors, filteredContributorsList),
+          techStacks
+        };
       })
       .sort((a, b) => b.totalScore - a.totalScore); // Sort by total score in descending order
     

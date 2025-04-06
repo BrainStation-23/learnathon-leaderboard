@@ -192,6 +192,42 @@ export type Database = {
           },
         ]
       }
+      repository_tech_stacks: {
+        Row: {
+          created_at: string
+          id: string
+          repository_id: string
+          tech_stack_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          repository_id: string
+          tech_stack_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          repository_id?: string
+          tech_stack_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repository_tech_stacks_repository_id_fkey"
+            columns: ["repository_id"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repository_tech_stacks_tech_stack_id_fkey"
+            columns: ["tech_stack_id"]
+            isOneToOne: false
+            referencedRelation: "tech_stacks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sonar_metrics: {
         Row: {
           bugs: number | null
@@ -263,6 +299,24 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tech_stacks: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }

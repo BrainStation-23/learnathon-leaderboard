@@ -7,7 +7,7 @@ import { RepositoryContributors } from "./RepositoryContributors";
 import { LinesOfCodeIndicator } from "./LinesOfCodeIndicator";
 import { Separator } from "@/components/ui/separator";
 import { MetricsRadarChart } from "./MetricsRadarChart";
-import { Radar } from "lucide-react";
+import { Radar, Code2 } from "lucide-react";
 
 interface RepositoryScoreCardProps {
   item: LeaderboardItem;
@@ -36,6 +36,17 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
               )}
             </div>
             <CardTitle className="text-xl">{item.repositoryName}</CardTitle>
+            
+            {/* Display Tech Stacks */}
+            {item.techStacks && item.techStacks.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {item.techStacks.map((stack, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {stack}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold">{item.totalScore}</div>
