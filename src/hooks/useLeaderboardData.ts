@@ -30,12 +30,36 @@ export function useLeaderboardData() {
   const [loading, setLoading] = useState(true);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [filteredContributors, setFilteredContributors] = useState<string[]>([]);
+
+  // Function to fetch filter settings
+  const fetchFilterSettings = async () => {
+    try {
+      // Get the filtered contributors list from the most recent configuration
+      const { data, error } = await supabase
+        .from('configurations')
+        .select('filtered_contributors')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (!error && data && data.filtered_contributors) {
+        setFilteredContributors(data.filtered_contributors);
+      }
+    } catch (err) {
+      console.error("Error fetching filter settings:", err);
+      // We don't set an error state here as this is optional enhancement
+    }
+  };
 
   const fetchLeaderboardData = async () => {
     setLoading(true);
     setError(null);
     
     try {
+      // Fetch filter settings first to ensure we have the latest filters
+      await fetchFilterSettings();
+      
       // Use the function that returns repositories with metrics
       const { data: reposData, error: repoError } = await supabase
         .rpc('get_repositories_with_metrics');
@@ -93,10 +117,15 @@ export function useLeaderboardData() {
           
           const totalScore = calculateTotalScore(metrics);
           
-          // Get all contributors without filtering
-          const contributors = contributorsMap[item.id] || [];
+          // Filter out contributors based on the filtered_contributors list
+          let contributors = contributorsMap[item.id] || [];
+          if (filteredContributors.length > 0) {
+            contributors = contributors.filter(
+              contributor => !filteredContributors.includes(contributor.login)
+            );
+          }
           
-          // Calculate the total commit count
+          // Calculate the commit count based on filtered contributors
           const totalCommits = contributors.reduce(
             (sum, contributor) => sum + contributor.contributions, 
             0
