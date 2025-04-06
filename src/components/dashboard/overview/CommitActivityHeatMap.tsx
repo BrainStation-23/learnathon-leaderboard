@@ -1,8 +1,9 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { format, subMonths, eachMonthOfInterval } from "date-fns";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface CommitActivityHeatMapProps {
   monthlyCommitData: { month: string; commits: number }[];
@@ -45,23 +46,29 @@ export default function CommitActivityHeatMap({ monthlyCommitData }: CommitActiv
           config={{}}
           className="aspect-auto h-[300px]"
         >
-          <div className="flex p-4 gap-1">
-            {allMonths.map((month) => {
-              const commits = commitsByMonth[month] || 0;
-              const intensity = maxCommits > 0 ? Math.min(0.1 + (commits / maxCommits * 0.9), 1) : 0.1;
-              
-              return (
-                <div
-                  key={month}
-                  className="relative flex-1 rounded hover:ring-1 hover:ring-foreground/20 hover:shadow-sm"
-                  style={{ 
-                    height: 160,
-                    background: `rgba(26, 73, 194, ${intensity})`,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <ChartTooltip>
-                    <ChartTooltipContent>
+          <TooltipProvider>
+            <div className="flex p-4 gap-1">
+              {allMonths.map((month) => {
+                const commits = commitsByMonth[month] || 0;
+                const intensity = maxCommits > 0 ? Math.min(0.1 + (commits / maxCommits * 0.9), 1) : 0.1;
+                
+                return (
+                  <Tooltip key={month}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="relative flex-1 rounded hover:ring-1 hover:ring-foreground/20 hover:shadow-sm"
+                        style={{ 
+                          height: 160,
+                          background: `rgba(26, 73, 194, ${intensity})`,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[10px] text-white font-medium">
+                          {month}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
                       <div className="flex flex-col gap-1">
                         <span className="font-medium">{month}</span>
                         <div className="flex items-center justify-between gap-2">
@@ -69,15 +76,12 @@ export default function CommitActivityHeatMap({ monthlyCommitData }: CommitActiv
                           <span className="font-mono tabular-nums">{commits}</span>
                         </div>
                       </div>
-                    </ChartTooltipContent>
-                  </ChartTooltip>
-                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[10px] text-white font-medium">
-                    {month}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         </ChartContainer>
         <div className="flex justify-center mt-2 items-center gap-1">
           <div className="text-xs text-muted-foreground">Less</div>
