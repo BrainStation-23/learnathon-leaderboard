@@ -35,6 +35,8 @@ export default function Sidebar() {
       name: "Settings",
       path: "/settings",
       icon: Settings,
+      // If we're on any settings page, this should be active
+      isActive: (location: { pathname: string }) => location.pathname.startsWith("/settings")
     },
   ];
 
@@ -58,20 +60,26 @@ export default function Sidebar() {
       
       <nav className="flex-1 p-4">
         <ul className="space-y-1">
-          {routes.map((route) => (
-            <li key={route.path}>
-              <Link 
-                to={route.path} 
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-hackathon-900 transition-colors",
-                  location.pathname === route.path ? "bg-hackathon-800 text-hackathon-100" : "text-gray-300"
-                )}
-              >
-                <route.icon className="h-5 w-5" />
-                {route.name}
-              </Link>
-            </li>
-          ))}
+          {routes.map((route) => {
+            const isActive = route.isActive 
+              ? route.isActive(location) 
+              : location.pathname === route.path;
+              
+            return (
+              <li key={route.path}>
+                <Link 
+                  to={route.path} 
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-hackathon-900 transition-colors",
+                    isActive ? "bg-hackathon-800 text-hackathon-100" : "text-gray-300"
+                  )}
+                >
+                  <route.icon className="h-5 w-5" />
+                  {route.name}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
       

@@ -13,6 +13,9 @@ import Dashboard from "./pages/Dashboard";
 import Repositories from "./pages/Repositories";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import DashboardConfig from "./pages/settings/DashboardConfig";
+import LeaderboardConfig from "./pages/settings/LeaderboardConfig";
+import TechStacksConfig from "./pages/settings/TechStacksConfig";
 import NotFound from "./pages/NotFound";
 
 // Create a client outside of the component
@@ -42,6 +45,9 @@ function App() {
                 <Route path="/repositories" element={<Repositories />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/dashboard" element={<DashboardConfig />} />
+                <Route path="/settings/leaderboard" element={<LeaderboardConfig />} />
+                <Route path="/settings/tech-stacks" element={<TechStacksConfig />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
