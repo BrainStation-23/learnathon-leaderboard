@@ -40,7 +40,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       // Transform the data to match our TeamDashboardData type
       return {
         repoData: {
-          // Use the actual UUID from the database instead of random number
+          // Use the UUID from the database directly - now our type supports string IDs
           id: item.id,
           name: item.name,
           full_name: item.name, 

@@ -1,7 +1,7 @@
 
 // GitHub Types
 export interface GitHubRepoData {
-  id: number;
+  id: string | number;
   name: string;
   full_name: string;
   html_url: string;
