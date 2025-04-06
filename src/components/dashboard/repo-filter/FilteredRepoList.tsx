@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Tag } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +23,7 @@ interface Repository {
   description: string | null;
   isFiltered: boolean;
   reason: string;
+  label: string | null;
 }
 
 interface FilteredRepoListProps {
@@ -40,6 +41,19 @@ export default function FilteredRepoList({
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [removing, setRemoving] = useState(false);
   const { toast } = useToast();
+
+  const getLabelDisplay = (label: string | null) => {
+    if (!label) return null;
+    
+    const labelMap: Record<string, { text: string, variant: "default" | "outline" | "secondary" | "destructive" }> = {
+      "dropped-out": { text: "Dropped Out", variant: "destructive" },
+      "no-contact": { text: "No Contact", variant: "secondary" },
+      "got-job": { text: "Got Job", variant: "default" },
+      "other": { text: "Other", variant: "outline" }
+    };
+    
+    return labelMap[label] || { text: label, variant: "outline" };
+  };
 
   const handleRemoveFilter = (repo: Repository) => {
     setSelectedRepo(repo);
@@ -63,7 +77,7 @@ export default function FilteredRepoList({
       setRepositories(prev => 
         prev.map(repo => 
           repo.id === selectedRepo.id 
-            ? { ...repo, isFiltered: false, reason: "" } 
+            ? { ...repo, isFiltered: false, reason: "", label: null } 
             : repo
         )
       );
@@ -90,39 +104,51 @@ export default function FilteredRepoList({
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        {filteredRepos.map(repo => (
-          <div 
-            key={repo.id}
-            className="group flex flex-col justify-between rounded-lg border bg-card p-3 transition-all hover:shadow-md"
-          >
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">{repo.name}</h4>
-                {repo.reason && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{repo.reason}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-              <Badge variant="secondary" className="mb-2">Filtered</Badge>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-2 w-full"
-              onClick={() => handleRemoveFilter(repo)}
+        {filteredRepos.map(repo => {
+          const labelDisplay = getLabelDisplay(repo.label);
+          
+          return (
+            <div 
+              key={repo.id}
+              className="group flex flex-col justify-between rounded-lg border bg-card p-3 transition-all hover:shadow-md"
             >
-              Remove Filter
-            </Button>
-          </div>
-        ))}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">{repo.name}</h4>
+                  {repo.reason && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{repo.reason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="mb-2">Filtered</Badge>
+                  {labelDisplay && (
+                    <Badge variant={labelDisplay.variant} className="flex items-center gap-1 mb-2">
+                      <Tag className="h-3 w-3" />
+                      <span>{labelDisplay.text}</span>
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2 w-full"
+                onClick={() => handleRemoveFilter(repo)}
+              >
+                Remove Filter
+              </Button>
+            </div>
+          );
+        })}
       </div>
 
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>

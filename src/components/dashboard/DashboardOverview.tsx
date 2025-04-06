@@ -1,15 +1,10 @@
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
 import { useConfig } from "@/context/ConfigContext";
-import { useToast } from "@/hooks/use-toast";
-import { fetchDashboardData } from "@/services/supabaseService";
-import { TeamDashboardData } from "@/types";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 // Import custom hooks
 import useOverviewStats from "@/hooks/dashboard/useOverviewStats";
+import useDashboardData from "@/hooks/dashboard/useDashboardData";
 
 // Import components
 import StatsCards from "./overview/StatsCards";
@@ -18,44 +13,15 @@ import IssueDistributionChart from "./overview/IssueDistributionChart";
 import DashboardHeader from "./overview/DashboardHeader";
 import LoadingState from "./overview/LoadingState";
 import AuthRequiredCard from "./overview/AuthRequiredCard";
+import FilterStatsCard from "./overview/FilterStatsCard";
 
 export default function DashboardOverview() {
-  const { config, isConfigured } = useConfig();
+  const { isConfigured } = useConfig();
   const { user } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<TeamDashboardData[]>([]);
+  const { loading, dashboardData, loadData } = useDashboardData();
   
   // Use custom hook to calculate stats and chart data
   const { stats, chartData } = useOverviewStats(dashboardData);
-  
-  // Fetch data from Supabase
-  const loadData = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const data = await fetchDashboardData();
-      setDashboardData(data);
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-      toast({
-        title: "Error loading data",
-        description: "Failed to retrieve dashboard data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial data load
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
   
   if (!user) {
     return (
@@ -87,8 +53,14 @@ export default function DashboardOverview() {
       
       <StatsCards stats={stats} />
       
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <CommitActivityChart commitActivityData={chartData.commitActivityData} />
+        </div>
+        <FilterStatsCard />
+      </div>
+      
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <CommitActivityChart commitActivityData={chartData.commitActivityData} />
         <IssueDistributionChart issueDistribution={chartData.issueDistribution} />
       </div>
     </div>

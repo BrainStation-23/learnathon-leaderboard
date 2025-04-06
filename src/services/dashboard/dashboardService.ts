@@ -92,3 +92,47 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     throw error;
   }
 }
+
+// A new function to get filter statistics for the dashboard
+export async function fetchFilterStats(): Promise<{ 
+  total: number, 
+  droppedOut: number, 
+  noContact: number, 
+  gotJob: number, 
+  other: number 
+}> {
+  try {
+    // Fetch filtered repositories with their labels
+    const { data: filteredRepos, error } = await (supabase
+      .from('filtered_repositories' as any)
+      .select('label'));
+    
+    if (error) {
+      logger.error("Error fetching filter statistics:", { error });
+      throw error;
+    }
+    
+    // Count by label
+    const stats = {
+      total: filteredRepos?.length || 0,
+      droppedOut: 0,
+      noContact: 0,
+      gotJob: 0,
+      other: 0
+    };
+    
+    if (filteredRepos) {
+      filteredRepos.forEach((repo: any) => {
+        if (repo.label === 'dropped-out') stats.droppedOut += 1;
+        else if (repo.label === 'no-contact') stats.noContact += 1;
+        else if (repo.label === 'got-job') stats.gotJob += 1;
+        else if (repo.label === 'other') stats.other += 1;
+      });
+    }
+    
+    return stats;
+  } catch (error) {
+    logger.error("Error in fetchFilterStats", { error });
+    return { total: 0, droppedOut: 0, noContact: 0, gotJob: 0, other: 0 };
+  }
+}

@@ -23,6 +23,7 @@ export default function RepoFilterSettings() {
   const [repositories, setRepositories] = useState<any[]>([]);
   const [filteredRepos, setFilteredRepos] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [labelCounts, setLabelCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -44,18 +45,31 @@ export default function RepoFilterSettings() {
         // Fetch filtered repositories with type assertion
         const { data: filteredData, error: filteredError } = await (supabase
           .from('filtered_repositories' as any)
-          .select('repository_id, reason'));
+          .select('repository_id, reason, label'));
           
         if (filteredError) throw filteredError;
         
         // Mark filtered repositories
         const filteredIds = new Set(filteredData ? filteredData.map((item: any) => item.repository_id) : []);
         const filteredReasons = new Map(filteredData ? filteredData.map((item: any) => [item.repository_id, item.reason]) : []);
+        const filteredLabels = new Map(filteredData ? filteredData.map((item: any) => [item.repository_id, item.label]) : []);
+        
+        // Count labels
+        const counts: Record<string, number> = {};
+        if (filteredData) {
+          filteredData.forEach((item: any) => {
+            if (item.label) {
+              counts[item.label] = (counts[item.label] || 0) + 1;
+            }
+          });
+        }
+        setLabelCounts(counts);
         
         const reposWithFilterStatus = reposData.map((repo: any) => ({
           ...repo,
           isFiltered: filteredIds.has(repo.id),
-          reason: filteredReasons.get(repo.id) || ""
+          reason: filteredReasons.get(repo.id) || "",
+          label: filteredLabels.get(repo.id) || null
         }));
         
         setRepositories(reposWithFilterStatus);
@@ -127,6 +141,24 @@ export default function RepoFilterSettings() {
                     <Filter className="h-4 w-4" />
                     Filtered Repositories
                   </h4>
+                  
+                  {Object.entries(labelCounts).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {Object.entries(labelCounts).map(([label, count]) => {
+                        const labelText = label === "dropped-out" ? "Dropped Out" :
+                                         label === "no-contact" ? "No Contact" :
+                                         label === "got-job" ? "Got Job" : 
+                                         label;
+                        
+                        return (
+                          <Badge key={label} variant="outline" className="py-1">
+                            {labelText}: {count}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
                   <FilteredRepoList 
                     filteredRepos={filteredRepos}
                     setRepositories={setRepositories}

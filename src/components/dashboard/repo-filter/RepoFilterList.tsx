@@ -23,6 +23,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Repository {
   id: string;
@@ -30,6 +37,7 @@ interface Repository {
   description: string | null;
   isFiltered: boolean;
   reason: string;
+  label: string | null;
 }
 
 interface RepoFilterListProps {
@@ -42,12 +50,21 @@ export default function RepoFilterList({ repositories, setRepositories, setFilte
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [reason, setReason] = useState("");
+  const [label, setLabel] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const filterLabels = [
+    { value: "dropped-out", label: "Dropped Out" },
+    { value: "no-contact", label: "No Contact" },
+    { value: "got-job", label: "Got Job" },
+    { value: "other", label: "Other" },
+  ];
 
   const handleFilterRepo = async (repo: Repository) => {
     setSelectedRepo(repo);
     setReason(repo.reason || "");
+    setLabel(repo.label || null);
     setDialogOpen(true);
   };
 
@@ -61,7 +78,8 @@ export default function RepoFilterList({ repositories, setRepositories, setFilte
         .from('filtered_repositories' as any)
         .insert({
           repository_id: selectedRepo.id,
-          reason: reason.trim()
+          reason: reason.trim(),
+          label: label
         }));
       
       if (error) throw error;
@@ -69,7 +87,7 @@ export default function RepoFilterList({ repositories, setRepositories, setFilte
       // Update local state
       const updatedRepositories = repositories.map(repo => 
         repo.id === selectedRepo.id 
-          ? { ...repo, isFiltered: true, reason } 
+          ? { ...repo, isFiltered: true, reason, label } 
           : repo
       );
       
@@ -166,6 +184,22 @@ export default function RepoFilterList({ repositories, setRepositories, setFilte
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="label">Label (optional)</Label>
+              <Select value={label || ""} onValueChange={setLabel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a label" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {filterLabels.map((filterLabel) => (
+                    <SelectItem key={filterLabel.value} value={filterLabel.value}>
+                      {filterLabel.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
