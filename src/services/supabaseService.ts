@@ -95,8 +95,10 @@ export async function saveRepositoryData(
               contributions: contributor.contributions
             }));
 
-            const { error: contributorsError } = await supabase
-              .from("contributors")
+            // Use the any type to bypass TypeScript's type checking for now
+            // This is a workaround until the Supabase types are updated
+            const { error: contributorsError } = await (supabase
+              .from("contributors") as any)
               .upsert(contributorsToUpsert, {
                 onConflict: "repository_id,github_id",
                 ignoreDuplicates: false
@@ -249,8 +251,9 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     // Fetch contributors for each repository
     const repos = await Promise.all((reposData || []).map(async (item) => {
       // Get top contributors for this repository
-      const { data: contributors, error: contribError } = await supabase
-        .from('contributors')
+      // Use the any type to bypass TypeScript's type checking for now
+      const { data: contributorRows, error: contribError } = await (supabase
+        .from('contributors') as any)
         .select('*')
         .eq('repository_id', item.id)
         .order('contributions', { ascending: false })
@@ -259,6 +262,14 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       if (contribError) {
         logger.error(`Error fetching contributors for repo ${item.name}`, { error: contribError });
       }
+
+      // Transform contributors data to match the GitHubContributor type
+      const contributors: GitHubContributor[] = (contributorRows || []).map(contributor => ({
+        id: contributor.github_id,
+        login: contributor.login,
+        avatar_url: contributor.avatar_url || '',
+        contributions: contributor.contributions
+      }));
       
       // Transform the data to match our TeamDashboardData type
       return {
@@ -271,7 +282,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
           updated_at: item.updated_at?.toString() || new Date().toISOString(),
           contributors_count: item.contributors_count || 0,
           commits_count: item.commits_count || 0,
-          contributors: contributors || []
+          contributors: contributors
         },
         sonarData: item.sonar_project_key ? {
           project_key: item.sonar_project_key,
