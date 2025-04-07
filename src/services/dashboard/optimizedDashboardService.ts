@@ -41,14 +41,18 @@ export async function fetchDashboardOverview() {
 // Basic repository stats (total repos, contributors)
 async function fetchRepositoryStats() {
   try {
-    const { data, error } = await supabase.rpc('get_repository_stats');
+    // Use the new database function with .single() to get just one row
+    const { data, error } = await supabase.rpc('get_repository_stats').single();
     
     if (error) {
       logger.error("Error fetching repository stats", { error });
       return { totalRepos: 0, totalContributors: 0 };
     }
     
-    return data || { totalRepos: 0, totalContributors: 0 };
+    return {
+      totalRepos: Number(data.totalrepos) || 0,
+      totalContributors: Number(data.totalcontributors) || 0
+    };
   } catch (error) {
     logger.error("Error in fetchRepositoryStats", { error });
     return { totalRepos: 0, totalContributors: 0 };
@@ -58,7 +62,8 @@ async function fetchRepositoryStats() {
 // Contributor distribution across repositories
 async function fetchContributorDistribution() {
   try {
-    const { data, error } = await supabase.rpc('get_contributor_distribution');
+    // Use the new database function with .single() to get just one row
+    const { data, error } = await supabase.rpc('get_contributor_distribution').single();
     
     if (error) {
       logger.error("Error fetching contributor distribution", { error });
@@ -70,11 +75,11 @@ async function fetchContributorDistribution() {
       };
     }
     
-    return data || {
-      reposWithOneActiveContributor: 0,
-      reposWithTwoActiveContributors: 0,
-      reposWithThreeActiveContributors: 0,
-      reposWithNoRecentActivity: 0
+    return {
+      reposWithOneActiveContributor: Number(data.reposwithoneactivecontributor) || 0,
+      reposWithTwoActiveContributors: Number(data.reposwithtwoacativecontributors) || 0,
+      reposWithThreeActiveContributors: Number(data.reposwiththreeactivecontributors) || 0,
+      reposWithNoRecentActivity: Number(data.reposwithnorecentactivity) || 0
     };
   } catch (error) {
     logger.error("Error in fetchContributorDistribution", { error });
@@ -90,14 +95,18 @@ async function fetchContributorDistribution() {
 // Repository activity (last commit dates)
 async function fetchRepositoryActivity() {
   try {
-    const { data, error } = await supabase.rpc('get_repository_activity');
+    // Use the new database function with .single() to get just one row
+    const { data, error } = await supabase.rpc('get_repository_activity').single();
     
     if (error) {
       logger.error("Error fetching repository activity", { error });
       return { reposWithRecentActivity: 0, reposWithNoRecentActivity: 0 };
     }
     
-    return data || { reposWithRecentActivity: 0, reposWithNoRecentActivity: 0 };
+    return { 
+      reposWithRecentActivity: Number(data.reposwithrecentactivity) || 0, 
+      reposWithNoRecentActivity: Number(data.reposwithnorecentactivity) || 0 
+    };
   } catch (error) {
     logger.error("Error in fetchRepositoryActivity", { error });
     return { reposWithRecentActivity: 0, reposWithNoRecentActivity: 0 };
@@ -107,7 +116,8 @@ async function fetchRepositoryActivity() {
 // Filter stats (dropped out, job offers)
 export async function fetchFilterStats() {
   try {
-    const { data, error } = await supabase.rpc('get_filter_stats');
+    // Use the new database function with .single() to get just one row
+    const { data, error } = await supabase.rpc('get_filter_stats').single();
     
     if (error) {
       logger.error("Error fetching filter stats", { error });
@@ -120,12 +130,12 @@ export async function fetchFilterStats() {
       };
     }
     
-    return data || { 
-      total: 0, 
-      droppedOut: 0, 
-      noContact: 0, 
-      gotJob: 0, 
-      other: 0 
+    return { 
+      total: Number(data.total) || 0, 
+      droppedOut: Number(data.droppedout) || 0, 
+      noContact: Number(data.nocontact) || 0, 
+      gotJob: Number(data.gotjob) || 0, 
+      other: Number(data.other) || 0 
     };
   } catch (error) {
     logger.error("Error in fetchFilterStats", { error });
@@ -142,6 +152,7 @@ export async function fetchFilterStats() {
 // Tech stack distribution
 async function fetchStackDistribution() {
   try {
+    // This one returns multiple rows so don't use .single()
     const { data, error } = await supabase.rpc('get_stack_distribution');
     
     if (error) {
@@ -155,7 +166,7 @@ async function fetchStackDistribution() {
     if (data && Array.isArray(data)) {
       data.forEach(item => {
         if (item.name && item.count) {
-          distribution[item.name] = item.count;
+          distribution[item.name] = Number(item.count);
         }
       });
     }
@@ -170,6 +181,7 @@ async function fetchStackDistribution() {
 // Monthly commit activity
 async function fetchMonthlyActivity() {
   try {
+    // This one returns multiple rows so don't use .single()
     const { data, error } = await supabase.rpc('get_monthly_commit_activity');
     
     if (error) {
@@ -177,9 +189,13 @@ async function fetchMonthlyActivity() {
       return [];
     }
     
-    return (data || []).map(item => ({
-      month: item.month,
-      commits: item.commit_count
+    if (!data || !Array.isArray(data)) {
+      return [];
+    }
+    
+    return data.map(item => ({
+      month: item.month || '',
+      commits: Number(item.commit_count) || 0
     }));
   } catch (error) {
     logger.error("Error in fetchMonthlyActivity", { error });
@@ -192,7 +208,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
   try {
     // Fetch filtered repository IDs first with type assertion
     const { data: filteredRepoIds, error: filteredRepoError } = await (supabase
-      .from('filtered_repositories' as any)
+      .from('filtered_repositories')
       .select('repository_id'));
     
     if (filteredRepoError) {
@@ -221,9 +237,8 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     // Fetch contributors for each repository
     const repos = await Promise.all((filteredReposData || []).map(async (item) => {
       // Get top contributors for this repository
-      // Use the any type to bypass TypeScript's type checking for now
-      const { data: contributorRows, error: contribError } = await (supabase
-        .from('contributors') as any)
+      const { data: contributorRows, error: contribError } = await supabase
+        .from('contributors')
         .select('*')
         .eq('repository_id', item.id)
         .order('contributions', { ascending: false })

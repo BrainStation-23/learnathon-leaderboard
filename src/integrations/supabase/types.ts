@@ -357,6 +357,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_contributor_distribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          reposwithoneactivecontributor: number
+          reposwithtwoactivecontributors: number
+          reposwiththreeactivecontributors: number
+          reposwithnorecentactivity: number
+        }[]
+      }
+      get_filter_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          total: number
+          droppedout: number
+          nocontact: number
+          gotjob: number
+          other: number
+        }[]
+      }
+      get_monthly_commit_activity: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          month: string
+          commit_count: number
+        }[]
+      }
       get_repositories_with_metrics: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -377,6 +403,27 @@ export type Database = {
           code_smells: number
           technical_debt: string
           complexity: number
+        }[]
+      }
+      get_repository_activity: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          reposwithrecentactivity: number
+          reposwithnorecentactivity: number
+        }[]
+      }
+      get_repository_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          totalrepos: number
+          totalcontributors: number
+        }[]
+      }
+      get_stack_distribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          name: string
+          count: number
         }[]
       }
       log_audit_event: {
