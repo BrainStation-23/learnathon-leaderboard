@@ -15,13 +15,19 @@ import AuthRequiredCard from "./overview/AuthRequiredCard";
 import ContributorStatsCards from "./overview/ContributorStatsCards";
 import StackDistributionTable from "./overview/StackDistributionTable";
 
+// Import skeleton components
+import StatsCardSkeleton from "./overview/StatsCardSkeleton";
+import ContributorStatsCardSkeleton from "./overview/ContributorStatsCardSkeleton";
+import HeatMapSkeleton from "./overview/HeatMapSkeleton";
+import StackDistributionSkeleton from "./overview/StackDistributionSkeleton";
+
 export default function DashboardOverview() {
   const { isConfigured } = useConfig();
   const { user } = useAuth();
   const { loading, dashboardData, loadData } = useDashboardData();
   
   // Use custom hook to calculate stats and chart data
-  const { stats, chartData } = useOverviewStats(dashboardData);
+  const { stats, chartData, isStatsLoading, isChartDataLoading } = useOverviewStats(dashboardData);
   
   if (!user) {
     return (
@@ -43,7 +49,8 @@ export default function DashboardOverview() {
     );
   }
 
-  if (loading) {
+  // Show full page loading state only when initially loading data
+  if (loading && dashboardData.length === 0) {
     return <LoadingState />;
   }
 
@@ -51,20 +58,44 @@ export default function DashboardOverview() {
     <div className="space-y-6">
       <DashboardHeader onRefreshClick={loadData} />
       
-      <StatsCards stats={stats} />
+      {isStatsLoading ? (
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+        </div>
+      ) : (
+        <StatsCards stats={stats} />
+      )}
       
-      <ContributorStatsCards 
-        reposWithOneActiveContributor={stats.reposWithOneActiveContributor}
-        reposWithTwoActiveContributors={stats.reposWithTwoActiveContributors}
-        reposWithThreeActiveContributors={stats.reposWithThreeActiveContributors}
-        reposWithJobOffer={stats.reposWithJobOffer}
-        reposDroppedOut={stats.reposDroppedOut}
-        reposWithNoRecentActivity={stats.reposWithNoRecentActivity}
-      />
+      {isStatsLoading ? (
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {Array(6).fill(0).map((_, i) => (
+            <ContributorStatsCardSkeleton key={`contrib-skeleton-${i}`} />
+          ))}
+        </div>
+      ) : (
+        <ContributorStatsCards 
+          reposWithOneActiveContributor={stats.reposWithOneActiveContributor}
+          reposWithTwoActiveContributors={stats.reposWithTwoActiveContributors}
+          reposWithThreeActiveContributors={stats.reposWithThreeActiveContributors}
+          reposWithJobOffer={stats.reposWithJobOffer}
+          reposDroppedOut={stats.reposDroppedOut}
+          reposWithNoRecentActivity={stats.reposWithNoRecentActivity}
+        />
+      )}
       
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <CommitActivityHeatMap monthlyCommitData={chartData.monthlyCommitData} />
-        <StackDistributionTable distribution={stats.stackDistribution} />
+        {isChartDataLoading ? (
+          <HeatMapSkeleton />
+        ) : (
+          <CommitActivityHeatMap monthlyCommitData={chartData.monthlyCommitData} />
+        )}
+        
+        {isStatsLoading ? (
+          <StackDistributionSkeleton />
+        ) : (
+          <StackDistributionTable distribution={stats.stackDistribution} />
+        )}
       </div>
     </div>
   );

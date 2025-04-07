@@ -36,10 +36,16 @@ export default function useOverviewStats(dashboardData: TeamDashboardData[]) {
   const [chartData, setChartData] = useState<ChartData>({
     monthlyCommitData: []
   });
+
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const [isChartDataLoading, setIsChartDataLoading] = useState(true);
   
   // Calculate stats when dashboardData changes
   useEffect(() => {
     if (dashboardData.length === 0) return;
+    
+    setIsStatsLoading(true);
+    setIsChartDataLoading(true);
     
     // Calculate basic stats
     const totalRepos = dashboardData.length;
@@ -61,9 +67,11 @@ export default function useOverviewStats(dashboardData: TeamDashboardData[]) {
         };
         
         setStats(newStats);
+        setIsStatsLoading(false);
       })
       .catch(err => {
         console.error("Error getting contributor stats:", err);
+        setIsStatsLoading(false);
       });
 
     // Generate monthly commit activity for heat map - only last 5 months
@@ -102,7 +110,14 @@ export default function useOverviewStats(dashboardData: TeamDashboardData[]) {
       monthlyCommitData
     });
     
+    setIsChartDataLoading(false);
+    
   }, [dashboardData]);
 
-  return { stats, chartData };
+  return { 
+    stats, 
+    chartData, 
+    isStatsLoading, 
+    isChartDataLoading 
+  };
 }
