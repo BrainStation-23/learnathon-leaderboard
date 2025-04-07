@@ -48,8 +48,7 @@ interface RepositoryStatsResponse {
 async function fetchRepositoryStats() {
   try {
     const { data, error } = await supabase
-      .from('get_repository_stats')
-      .select('*')
+      .rpc('get_repository_stats')
       .single();
     
     if (error) {
@@ -81,8 +80,7 @@ interface ContributorDistributionResponse {
 async function fetchContributorDistribution() {
   try {
     const { data, error } = await supabase
-      .from('get_contributor_distribution')
-      .select('*')
+      .rpc('get_contributor_distribution')
       .single();
     
     if (error) {
@@ -124,8 +122,7 @@ interface RepositoryActivityResponse {
 async function fetchRepositoryActivity() {
   try {
     const { data, error } = await supabase
-      .from('get_repository_activity')
-      .select('*')
+      .rpc('get_repository_activity')
       .single();
     
     if (error) {
@@ -158,8 +155,7 @@ interface FilterStatsResponse {
 export async function fetchFilterStats() {
   try {
     const { data, error } = await supabase
-      .from('get_filter_stats')
-      .select('*')
+      .rpc('get_filter_stats')
       .single();
     
     if (error) {
@@ -204,8 +200,7 @@ interface StackDistributionItem {
 async function fetchStackDistribution() {
   try {
     const { data, error } = await supabase
-      .from('get_stack_distribution')
-      .select('*');
+      .rpc('get_stack_distribution');
     
     if (error) {
       logger.error("Error fetching stack distribution", { error });
@@ -241,8 +236,7 @@ interface MonthlyActivityItem {
 async function fetchMonthlyActivity() {
   try {
     const { data, error } = await supabase
-      .from('get_monthly_commit_activity')
-      .select('*');
+      .rpc('get_monthly_commit_activity');
     
     if (error) {
       logger.error("Error fetching monthly activity", { error });
@@ -354,3 +348,4 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     throw error;
   }
 }
+
