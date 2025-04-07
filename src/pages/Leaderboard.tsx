@@ -20,7 +20,7 @@ export default function Leaderboard() {
           <h1 className="text-3xl md:text-4xl font-bold">Code Quality Leaderboard</h1>
           {user && (
             <Button variant="outline" size="sm" className="ml-4" asChild>
-              <Link to="/settings">
+              <Link to="/settings/leaderboard">
                 <Settings className="h-4 w-4 mr-2" />
                 Configure
               </Link>
@@ -33,7 +33,7 @@ export default function Leaderboard() {
         </p>
       </div>
 
-      <Card>
+      <Card className="shadow-md">
         <CardContent className="p-6">
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg bg-muted/50">

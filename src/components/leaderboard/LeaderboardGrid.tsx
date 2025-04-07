@@ -1,12 +1,20 @@
 
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import { RepositoryScoreCard } from "./RepositoryScoreCard";
+import { LeaderboardFilters } from "./LeaderboardFilters";
 import { Loader2, RefreshCcw, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { LeaderboardItem } from "@/types/leaderboard";
 
 export function LeaderboardGrid() {
   const { loading, leaderboardData, error, refreshData } = useLeaderboardData();
+  const [filteredData, setFilteredData] = useState<LeaderboardItem[]>([]);
+
+  // Set filtered data whenever leaderboard data changes
+  useEffect(() => {
+    setFilteredData(leaderboardData);
+  }, [leaderboardData]);
 
   // Debug log when leaderboard data changes
   useEffect(() => {
@@ -74,15 +82,31 @@ export function LeaderboardGrid() {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {leaderboardData.map((item, index) => (
-          <RepositoryScoreCard 
-            key={item.repositoryId} 
-            item={item} 
-            rank={index + 1}
-          />
-        ))}
-      </div>
+      {/* Add the filters component */}
+      <LeaderboardFilters data={leaderboardData} onFiltered={setFilteredData} />
+      
+      {filteredData.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">
+          <p>No repositories match the current filters.</p>
+          <Button 
+            variant="link" 
+            onClick={() => setFilteredData(leaderboardData)}
+            className="mt-2"
+          >
+            Clear filters
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredData.map((item, index) => (
+            <RepositoryScoreCard 
+              key={item.repositoryId} 
+              item={item} 
+              rank={index + 1}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
