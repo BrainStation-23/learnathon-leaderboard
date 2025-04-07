@@ -121,7 +121,7 @@ async function fetchAndCountTechStacks(
           name
         )
       `)
-      .eq('repository_id', repoId);
+      .eq('repository_id', repoId.toString()); // Convert repoId to string here
 
     if (techStackError) {
       logger.error(`Error fetching tech stacks for repo ID ${repoId}`, { error: techStackError });
