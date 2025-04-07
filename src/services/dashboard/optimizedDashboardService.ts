@@ -38,20 +38,30 @@ export async function fetchDashboardOverview() {
   }
 }
 
+// Repository stats response type
+interface RepositoryStatsResponse {
+  totalrepos: number;
+  totalcontributors: number;
+}
+
 // Basic repository stats (total repos, contributors)
 async function fetchRepositoryStats() {
   try {
-    // Use the new database function with .single() to get just one row
-    const { data, error } = await supabase.rpc('get_repository_stats').single();
+    const { data, error } = await supabase
+      .from('get_repository_stats')
+      .select('*')
+      .single();
     
     if (error) {
       logger.error("Error fetching repository stats", { error });
       return { totalRepos: 0, totalContributors: 0 };
     }
     
+    const typedData = data as unknown as RepositoryStatsResponse;
+    
     return {
-      totalRepos: Number(data.totalrepos) || 0,
-      totalContributors: Number(data.totalcontributors) || 0
+      totalRepos: Number(typedData.totalrepos) || 0,
+      totalContributors: Number(typedData.totalcontributors) || 0
     };
   } catch (error) {
     logger.error("Error in fetchRepositoryStats", { error });
@@ -59,11 +69,21 @@ async function fetchRepositoryStats() {
   }
 }
 
+// Contributor distribution response type
+interface ContributorDistributionResponse {
+  reposwithoneactivecontributor: number;
+  reposwithtwoactivecontributors: number; 
+  reposwiththreeactivecontributors: number;
+  reposwithnorecentactivity: number;
+}
+
 // Contributor distribution across repositories
 async function fetchContributorDistribution() {
   try {
-    // Use the new database function with .single() to get just one row
-    const { data, error } = await supabase.rpc('get_contributor_distribution').single();
+    const { data, error } = await supabase
+      .from('get_contributor_distribution')
+      .select('*')
+      .single();
     
     if (error) {
       logger.error("Error fetching contributor distribution", { error });
@@ -75,11 +95,13 @@ async function fetchContributorDistribution() {
       };
     }
     
+    const typedData = data as unknown as ContributorDistributionResponse;
+    
     return {
-      reposWithOneActiveContributor: Number(data.reposwithoneactivecontributor) || 0,
-      reposWithTwoActiveContributors: Number(data.reposwithtwoacativecontributors) || 0,
-      reposWithThreeActiveContributors: Number(data.reposwiththreeactivecontributors) || 0,
-      reposWithNoRecentActivity: Number(data.reposwithnorecentactivity) || 0
+      reposWithOneActiveContributor: Number(typedData.reposwithoneactivecontributor) || 0,
+      reposWithTwoActiveContributors: Number(typedData.reposwithtwoactivecontributors) || 0,
+      reposWithThreeActiveContributors: Number(typedData.reposwiththreeactivecontributors) || 0,
+      reposWithNoRecentActivity: Number(typedData.reposwithnorecentactivity) || 0
     };
   } catch (error) {
     logger.error("Error in fetchContributorDistribution", { error });
@@ -92,20 +114,30 @@ async function fetchContributorDistribution() {
   }
 }
 
+// Repository activity response type
+interface RepositoryActivityResponse {
+  reposwithrecentactivity: number;
+  reposwithnorecentactivity: number;
+}
+
 // Repository activity (last commit dates)
 async function fetchRepositoryActivity() {
   try {
-    // Use the new database function with .single() to get just one row
-    const { data, error } = await supabase.rpc('get_repository_activity').single();
+    const { data, error } = await supabase
+      .from('get_repository_activity')
+      .select('*')
+      .single();
     
     if (error) {
       logger.error("Error fetching repository activity", { error });
       return { reposWithRecentActivity: 0, reposWithNoRecentActivity: 0 };
     }
     
+    const typedData = data as unknown as RepositoryActivityResponse;
+    
     return { 
-      reposWithRecentActivity: Number(data.reposwithrecentactivity) || 0, 
-      reposWithNoRecentActivity: Number(data.reposwithnorecentactivity) || 0 
+      reposWithRecentActivity: Number(typedData.reposwithrecentactivity) || 0, 
+      reposWithNoRecentActivity: Number(typedData.reposwithnorecentactivity) || 0 
     };
   } catch (error) {
     logger.error("Error in fetchRepositoryActivity", { error });
@@ -113,11 +145,22 @@ async function fetchRepositoryActivity() {
   }
 }
 
+// Filter stats response type
+interface FilterStatsResponse {
+  total: number;
+  droppedout: number;
+  nocontact: number;
+  gotjob: number;
+  other: number;
+}
+
 // Filter stats (dropped out, job offers)
 export async function fetchFilterStats() {
   try {
-    // Use the new database function with .single() to get just one row
-    const { data, error } = await supabase.rpc('get_filter_stats').single();
+    const { data, error } = await supabase
+      .from('get_filter_stats')
+      .select('*')
+      .single();
     
     if (error) {
       logger.error("Error fetching filter stats", { error });
@@ -130,12 +173,14 @@ export async function fetchFilterStats() {
       };
     }
     
+    const typedData = data as unknown as FilterStatsResponse;
+    
     return { 
-      total: Number(data.total) || 0, 
-      droppedOut: Number(data.droppedout) || 0, 
-      noContact: Number(data.nocontact) || 0, 
-      gotJob: Number(data.gotjob) || 0, 
-      other: Number(data.other) || 0 
+      total: Number(typedData.total) || 0, 
+      droppedOut: Number(typedData.droppedout) || 0, 
+      noContact: Number(typedData.nocontact) || 0, 
+      gotJob: Number(typedData.gotjob) || 0, 
+      other: Number(typedData.other) || 0 
     };
   } catch (error) {
     logger.error("Error in fetchFilterStats", { error });
@@ -149,11 +194,18 @@ export async function fetchFilterStats() {
   }
 }
 
+// Stack distribution response type
+interface StackDistributionItem {
+  name: string;
+  count: number;
+}
+
 // Tech stack distribution
 async function fetchStackDistribution() {
   try {
-    // This one returns multiple rows so don't use .single()
-    const { data, error } = await supabase.rpc('get_stack_distribution');
+    const { data, error } = await supabase
+      .from('get_stack_distribution')
+      .select('*');
     
     if (error) {
       logger.error("Error fetching stack distribution", { error });
@@ -164,7 +216,8 @@ async function fetchStackDistribution() {
     const distribution: Record<string, number> = {};
     
     if (data && Array.isArray(data)) {
-      data.forEach(item => {
+      const typedData = data as unknown as StackDistributionItem[];
+      typedData.forEach(item => {
         if (item.name && item.count) {
           distribution[item.name] = Number(item.count);
         }
@@ -178,11 +231,18 @@ async function fetchStackDistribution() {
   }
 }
 
+// Monthly activity response type
+interface MonthlyActivityItem {
+  month: string;
+  commit_count: number;
+}
+
 // Monthly commit activity
 async function fetchMonthlyActivity() {
   try {
-    // This one returns multiple rows so don't use .single()
-    const { data, error } = await supabase.rpc('get_monthly_commit_activity');
+    const { data, error } = await supabase
+      .from('get_monthly_commit_activity')
+      .select('*');
     
     if (error) {
       logger.error("Error fetching monthly activity", { error });
@@ -193,7 +253,9 @@ async function fetchMonthlyActivity() {
       return [];
     }
     
-    return data.map(item => ({
+    const typedData = data as unknown as MonthlyActivityItem[];
+    
+    return typedData.map(item => ({
       month: item.month || '',
       commits: Number(item.commit_count) || 0
     }));
