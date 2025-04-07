@@ -66,6 +66,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
           html_url: item.html_url || "",
           description: item.description || "",
           updated_at: item.updated_at?.toString() || new Date().toISOString(),
+          last_commit_date: item.last_commit_date?.toString() || null,
           contributors_count: item.contributors_count || 0,
           commits_count: item.commits_count || 0,
           contributors: contributors

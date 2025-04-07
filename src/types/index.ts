@@ -7,6 +7,7 @@ export interface GitHubRepoData {
   html_url: string;
   description: string;
   updated_at: string;
+  last_commit_date?: string;
   license?: {
     name: string;
     url: string;

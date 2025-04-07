@@ -49,9 +49,11 @@ export default function RepositoryCard({ data }: RepositoryCardProps) {
               <div className="flex flex-col items-center">
                 <Calendar className="h-5 w-5 text-hackathon-600 mb-1" />
                 <span className="text-xs font-medium">
-                  {formatDate(data.repoData.updated_at)}
+                  {data.repoData.last_commit_date 
+                    ? formatDate(data.repoData.last_commit_date) 
+                    : 'No data'}
                 </span>
-                <span className="text-xs text-muted-foreground">Updated</span>
+                <span className="text-xs text-muted-foreground">Last Commit</span>
               </div>
             </div>
             
