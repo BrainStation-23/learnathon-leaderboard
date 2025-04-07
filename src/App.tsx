@@ -18,6 +18,7 @@ import LeaderboardConfig from "./pages/settings/LeaderboardConfig";
 import TechStacksConfig from "./pages/settings/TechStacksConfig";
 import RepoFilterConfig from "./pages/settings/RepoFilterConfig";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
 
 // Create a client outside of the component
 const queryClient = new QueryClient({
@@ -33,12 +34,12 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ConfigProvider>
-          <TooltipProvider>
+      <BrowserRouter>
+        <TooltipProvider>
+          <AuthProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter>
+            <ConfigProvider>
               <Routes>
                 <Route path="/" element={<Leaderboard />} />
                 <Route path="/login" element={<Login />} />
@@ -53,10 +54,10 @@ function App() {
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ConfigProvider>
-      </AuthProvider>
+            </ConfigProvider>
+          </AuthProvider>
+        </TooltipProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

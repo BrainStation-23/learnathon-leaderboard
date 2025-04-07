@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { ProjectConfig } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
 interface ConfigContextType {
@@ -30,7 +30,6 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<ProjectConfig>(defaultConfig);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
-  const { toast } = useToast();
   const { user } = useAuth();
 
   // Load config from Supabase when user changes
@@ -84,7 +83,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadConfig();
-  }, [user, toast]);
+  }, [user]);
 
   const updateConfig = async (newConfig: ProjectConfig) => {
     if (!user) {

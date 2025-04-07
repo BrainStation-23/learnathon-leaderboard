@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Sidebar from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -13,7 +13,6 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, isLoading } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -28,7 +27,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       // Use navigate instead of directly manipulating window.location
       navigate("/login");
     }
-  }, [user, isLoading, toast, navigate]);
+  }, [user, isLoading, navigate]);
 
   if (isLoading) {
     return (
