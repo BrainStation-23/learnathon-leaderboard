@@ -1,11 +1,11 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import DashboardOverview from "@/components/dashboard/DashboardOverview";
+import OptimizedDashboardOverview from "@/components/dashboard/OptimizedDashboardOverview";
 
 const Dashboard = () => {
   return (
     <DashboardLayout>
-      <DashboardOverview />
+      <OptimizedDashboardOverview />
     </DashboardLayout>
   );
 };
