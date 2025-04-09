@@ -3,7 +3,7 @@ import { useConfig } from "@/context/ConfigContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Search as SearchIcon, Filter } from "lucide-react";
 import useRepositoryData from "@/hooks/repository/useRepositoryData";
 import ProgressTracker from "./ProgressTracker";
 import ErrorDisplay from "./ErrorDisplay";
@@ -11,6 +11,15 @@ import { TeamDashboardData } from "@/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { useState, useMemo } from "react";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RepositoriesTableProps {
   onSelectRepository: (repo: TeamDashboardData) => void;
@@ -32,6 +41,60 @@ export default function RepositoriesTable({ onSelectRepository, selectedRepo }: 
     loadData,
     fetchData
   } = useRepositoryData();
+
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [securityFilter, setSecurityFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name"); // Options: name, updated, contributors
+  
+  // Filtered and sorted data
+  const filteredData = useMemo(() => {
+    let filtered = [...dashboardData];
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(repo => 
+        repo.repoData.name.toLowerCase().includes(term) || 
+        (repo.repoData.description && repo.repoData.description.toLowerCase().includes(term))
+      );
+    }
+    
+    // Apply security filter
+    if (securityFilter !== "all") {
+      if (securityFilter === "issues") {
+        filtered = filtered.filter(repo => 
+          repo.securityIssues && repo.securityIssues.length > 0
+        );
+      } else if (securityFilter === "secure") {
+        filtered = filtered.filter(repo => 
+          !repo.securityIssues || repo.securityIssues.length === 0
+        );
+      } else if (securityFilter === "critical") {
+        filtered = filtered.filter(repo => 
+          repo.securityIssues && repo.securityIssues.some(issue => 
+            issue.severity.toLowerCase() === "critical"
+          )
+        );
+      }
+    }
+    
+    // Sort results
+    return filtered.sort((a, b) => {
+      if (sortBy === "name") {
+        return a.repoData.name.localeCompare(b.repoData.name);
+      } else if (sortBy === "updated") {
+        const dateA = a.repoData.last_commit_date ? new Date(a.repoData.last_commit_date).getTime() : 0;
+        const dateB = b.repoData.last_commit_date ? new Date(b.repoData.last_commit_date).getTime() : 0;
+        return dateB - dateA; // Most recent first
+      } else if (sortBy === "contributors") {
+        const countA = a.repoData.contributors_count || 0;
+        const countB = b.repoData.contributors_count || 0;
+        return countB - countA; // Most contributors first
+      }
+      return 0;
+    });
+  }, [dashboardData, searchTerm, securityFilter, sortBy]);
 
   if (!user) {
     return (
@@ -139,22 +202,67 @@ export default function RepositoriesTable({ onSelectRepository, selectedRepo }: 
       {/* Errors Display */}
       <ErrorDisplay errors={errors} />
 
+      {/* Search and Filters */}
+      {!loading && dashboardData.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input 
+              placeholder="Search repositories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="pl-9"
+            />
+          </div>
+          <div>
+            <Select value={securityFilter} onValueChange={setSecurityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Security Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Repositories</SelectItem>
+                <SelectItem value="secure">Secure Only</SelectItem>
+                <SelectItem value="issues">With Issues</SelectItem>
+                <SelectItem value="critical">Critical Issues</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="updated">Last Updated</SelectItem>
+                <SelectItem value="contributors">Contributors Count</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <Card className="p-4">
           <div className="flex items-center justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         </Card>
-      ) : dashboardData.length === 0 ? (
+      ) : filteredData.length === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>No repositories found</CardTitle>
+            <CardTitle>
+              {dashboardData.length === 0 ? "No repositories found" : "No matching repositories"}
+            </CardTitle>
             <CardDescription>
-              No repositories were found for the GitHub organization {config.github_org}.
+              {dashboardData.length === 0 
+                ? `No repositories were found for the GitHub organization ${config.github_org}.`
+                : "No repositories match your search criteria. Try adjusting your filters."
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Try refreshing the data from GitHub or check your configuration settings.</p>
+            <p>Try refreshing the data from GitHub or adjust your search filters.</p>
           </CardContent>
         </Card>
       ) : (
@@ -171,7 +279,7 @@ export default function RepositoriesTable({ onSelectRepository, selectedRepo }: 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboardData.map((repo) => {
+                  {filteredData.map((repo) => {
                     const isSelected = selectedRepo?.repoData.id === repo.repoData.id;
                     const securityIssues = getSecurityIssuesCount(repo);
                     
@@ -187,7 +295,7 @@ export default function RepositoriesTable({ onSelectRepository, selectedRepo }: 
                         <TableCell>
                           {formatDate(repo.repoData.last_commit_date)}
                         </TableCell>
-                        <TableCell>{repo.repoData.contributors_count || 0}</TableCell>
+                        <TableCell>{repo.repoData.contributors_count || "N/A"}</TableCell>
                         <TableCell>
                           {securityIssues ? (
                             <div className="flex gap-1">
