@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { 
   Home, 
   Settings, 
-  BarChart2,
   Code,
   LogOut
 } from "lucide-react";
@@ -25,11 +24,6 @@ export default function Sidebar() {
       name: "Repositories",
       path: "/repositories",
       icon: Code,
-    },
-    {
-      name: "Analytics",
-      path: "/analytics",
-      icon: BarChart2,
     },
     {
       name: "Settings",
@@ -53,7 +47,7 @@ export default function Sidebar() {
     <aside className="flex flex-col w-64 min-h-screen bg-hackathon-950 text-white">
       <div className="p-4">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          <BarChart2 className="h-6 w-6 text-hackathon-400" />
+          <Code className="h-6 w-6 text-hackathon-400" />
           <span>Hackathon Sonar</span>
         </h2>
       </div>

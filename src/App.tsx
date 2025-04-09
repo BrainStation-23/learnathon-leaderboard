@@ -12,7 +12,6 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Repositories from "./pages/Repositories";
 import RepositoryDetails from "./pages/RepositoryDetails";
-import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import DashboardConfig from "./pages/settings/DashboardConfig";
 import LeaderboardConfig from "./pages/settings/LeaderboardConfig";
@@ -47,7 +46,6 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/repositories" element={<Repositories />} />
                 <Route path="/repositories/:repoId" element={<RepositoryDetails />} />
-                <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/settings/dashboard" element={<DashboardConfig />} />
                 <Route path="/settings/leaderboard" element={<LeaderboardConfig />} />
