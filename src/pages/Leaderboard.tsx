@@ -3,7 +3,7 @@ import React from "react";
 import { LeaderboardGrid } from "@/components/leaderboard/LeaderboardGrid";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Settings } from "lucide-react";
+import { Trophy, Settings, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,14 +18,22 @@ export default function Leaderboard() {
         </div>
         <div className="flex items-center justify-center mb-2">
           <h1 className="text-3xl md:text-4xl font-bold">Code Quality Leaderboard</h1>
-          {user && (
-            <Button variant="outline" size="sm" className="ml-4" asChild>
-              <Link to="/settings/leaderboard">
-                <Settings className="h-4 w-4 mr-2" />
-                Configure
+          <div className="flex items-center gap-2 ml-4">
+            {user && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/settings/leaderboard">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configure
+                </Link>
+              </Button>
+            )}
+            <Button variant="default" size="sm" asChild>
+              <Link to="/hall-of-fame">
+                <Award className="h-4 w-4 mr-2" />
+                Hall of Fame
               </Link>
             </Button>
-          )}
+          </div>
         </div>
         <p className="text-muted-foreground max-w-lg mx-auto">
           Repositories ranked by code quality metrics from SonarCloud. 
