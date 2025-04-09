@@ -81,13 +81,13 @@ export async function fetchRepoDetails(
             }
           );
           
-          // Fetch security vulnerabilities (requires special preview header)
+          // Fetch security vulnerabilities using Dependabot API
           const securityResponse = await fetch(
-            `https://api.github.com/repos/${org}/${repo.name}/vulnerability-alerts`,
+            `https://api.github.com/repos/${org}/${repo.name}/dependabot/alerts`,
             {
               headers: {
                 Authorization: `token ${token}`,
-                Accept: "application/vnd.github.dorian-preview+json",
+                Accept: "application/vnd.github.v4+json",
               },
             }
           );
@@ -114,12 +114,12 @@ export async function fetchRepoDetails(
             const securityData = await securityResponse.json();
             if (Array.isArray(securityData)) {
               security_issues = securityData.map((issue: any) => ({
-                id: issue.id || Math.random(), // Fallback if id is not present
-                title: issue.alert?.security_advisory?.summary || "Security vulnerability",
-                state: issue.alert?.state || "unknown",
-                html_url: issue.html_url || repo.html_url,
-                published_at: issue.alert?.published_at || new Date().toISOString(),
-                severity: issue.alert?.security_advisory?.severity || "low"
+                id: issue.number || Math.random(),
+                title: issue.security_advisory?.summary || issue.dependency?.package?.name || "Security vulnerability",
+                state: issue.state || "open",
+                html_url: issue.html_url || `${repo.html_url}/security/dependabot`,
+                published_at: issue.created_at || new Date().toISOString(),
+                severity: issue.security_advisory?.severity || "low"
               }));
             }
           }
@@ -152,19 +152,20 @@ export async function fetchSecurityIssues(
   token: string
 ): Promise<GitHubSecurityIssue[]> {
   try {
-    // First try with the vulnerability alerts API
-    const vulnResponse = await fetch(
-      `https://api.github.com/repos/${org}/${repoName}/vulnerability-alerts`,
+    // First try with Dependabot alerts API
+    const dependabotResponse = await fetch(
+      `https://api.github.com/repos/${org}/${repoName}/dependabot/alerts`,
       {
         headers: {
           Authorization: `token ${token}`,
-          Accept: "application/vnd.github.dorian-preview+json",
+          Accept: "application/vnd.github.v4+json",
         },
       }
     );
     
     // If that fails, try with the CodeQL alerts API
-    if (!vulnResponse.ok) {
+    if (!dependabotResponse.ok) {
+      console.log(`Dependabot API failed for ${repoName} with status ${dependabotResponse.status}. Trying CodeQL API.`);
       const codeQLResponse = await fetch(
         `https://api.github.com/repos/${org}/${repoName}/code-scanning/alerts`,
         {
@@ -185,17 +186,19 @@ export async function fetchSecurityIssues(
           published_at: alert.created_at,
           severity: alert.rule?.security_severity_level || "warning"
         }));
+      } else {
+        console.log(`CodeQL API also failed for ${repoName} with status ${codeQLResponse.status}.`);
       }
-    } else if (vulnResponse.status !== 204) {  // 204 means no content
-      const alerts = await vulnResponse.json();
+    } else if (dependabotResponse.status !== 204) {  // 204 means no content
+      const alerts = await dependabotResponse.json();
       if (Array.isArray(alerts)) {
         return alerts.map((alert: any) => ({
-          id: alert.id || Math.random(),
-          title: alert.alert?.security_advisory?.summary || "Security vulnerability",
-          state: alert.alert?.state || "open",
+          id: alert.number || Math.random(),
+          title: alert.security_advisory?.summary || alert.dependency?.package?.name || "Security vulnerability",
+          state: alert.state || "open",
           html_url: alert.html_url || `https://github.com/${org}/${repoName}/security/dependabot`,
-          published_at: alert.alert?.published_at || new Date().toISOString(),
-          severity: alert.alert?.security_advisory?.severity || "low"
+          published_at: alert.created_at || new Date().toISOString(),
+          severity: alert.security_advisory?.severity || "low"
         }));
       }
     }

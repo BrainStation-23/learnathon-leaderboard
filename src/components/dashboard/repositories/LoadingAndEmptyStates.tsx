@@ -33,6 +33,10 @@ export function EmptyState({ totalRepositoriesCount, configOrg }: EmptyStateProp
       </CardHeader>
       <CardContent>
         <p>Try refreshing the data from GitHub or adjust your search filters.</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Note: To view security alerts, ensure your GitHub token has the 'repo' and 'security_events' scopes,
+          and that Dependabot alerts are enabled in your repositories.
+        </p>
       </CardContent>
     </Card>
   );
