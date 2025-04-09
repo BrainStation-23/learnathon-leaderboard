@@ -163,32 +163,47 @@ async function saveSecurityIssues(
   userId: string
 ): Promise<void> {
   try {
-    // Process each security issue
-    for (const issue of securityIssues) {
-      const { error } = await (supabase
-        .from("security_issues" as any)
-        .upsert({
-          repository_id: repositoryId,
-          title: issue.title,
-          severity: issue.severity,
-          published_at: issue.published_at,
-          html_url: issue.html_url,
-          state: issue.state,
-          updated_at: new Date().toISOString()
-        }, {
-          // Since we don't have a unique ID from GitHub that's guaranteed,
-          // we'll use repository_id + title as our composite key
-          onConflict: "repository_id,title"
-        }));
+    // First delete existing security issues for this repository
+    // This ensures we don't have duplicates or stale data
+    const { error: deleteError } = await supabase
+      .from("security_issues")
+      .delete()
+      .eq("repository_id", repositoryId);
       
-      if (error) {
-        logger.error(`Error saving security issue for repository ${repositoryId}`, { error, issue }, userId, 'security_issues');
-      }
+    if (deleteError) {
+      logger.error(`Error deleting existing security issues for repository ${repositoryId}`, 
+        { error: deleteError }, userId, 'security_issues');
     }
     
-    logger.info(`Saved ${securityIssues.length} security issues for repository ${repositoryId}`, {}, userId, 'security_issues');
+    // Only proceed with insertion if we have security issues to add
+    if (securityIssues.length > 0) {
+      // Create array of security issues to insert
+      const issuesToInsert = securityIssues.map(issue => ({
+        repository_id: repositoryId,
+        title: issue.title,
+        severity: issue.severity,
+        published_at: issue.published_at,
+        html_url: issue.html_url,
+        state: issue.state,
+        updated_at: new Date().toISOString()
+      }));
+      
+      // Insert all security issues at once without using ON CONFLICT
+      const { error: insertError } = await supabase
+        .from("security_issues")
+        .insert(issuesToInsert);
+      
+      if (insertError) {
+        logger.error(`Error inserting security issues for repository ${repositoryId}`, 
+          { error: insertError, issues: securityIssues.length }, userId, 'security_issues');
+      } else {
+        logger.info(`Saved ${securityIssues.length} security issues for repository ${repositoryId}`, 
+          {}, userId, 'security_issues');
+      }
+    }
   } catch (error) {
-    logger.error(`Error processing security issues for repository ${repositoryId}`, { error }, userId, 'security_issues');
+    logger.error(`Error processing security issues for repository ${repositoryId}`, 
+      { error }, userId, 'security_issues');
   }
 }
 
