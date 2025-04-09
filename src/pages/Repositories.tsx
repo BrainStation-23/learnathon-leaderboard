@@ -1,10 +1,10 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import RepositoryList from "@/components/dashboard/RepositoryList";
 import { useState } from "react";
 import { TeamDashboardData } from "@/types";
 import SecurityIssuesList from "@/components/dashboard/SecurityIssuesList";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import RepositoriesTable from "@/components/dashboard/RepositoriesTable";
 
 const Repositories = () => {
   const [selectedRepo, setSelectedRepo] = useState<TeamDashboardData | null>(null);
@@ -13,7 +13,7 @@ const Repositories = () => {
     <DashboardLayout>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <RepositoryList />
+          <RepositoriesTable onSelectRepository={setSelectedRepo} selectedRepo={selectedRepo} />
         </div>
         <div className="space-y-6">
           {selectedRepo ? (
@@ -38,6 +38,18 @@ const Repositories = () => {
                         <span className="text-muted-foreground">License:</span>
                         <span>{selectedRepo.repoData.license.name}</span>
                       </div>
+                    )}
+                    {selectedRepo.sonarData && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Code Coverage:</span>
+                          <span>{selectedRepo.sonarData.metrics.coverage?.toFixed(1) || 0}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Lines of Code:</span>
+                          <span>{selectedRepo.sonarData.metrics.lines_of_code?.toLocaleString() || 0}</span>
+                        </div>
+                      </>
                     )}
                   </div>
                 </CardContent>

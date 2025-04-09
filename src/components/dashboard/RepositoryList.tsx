@@ -9,13 +9,10 @@ import ProgressTracker from "./ProgressTracker";
 import ErrorDisplay from "./ErrorDisplay";
 import RepositoryCard from "./RepositoryCard";
 import RepositoryCardSkeleton from "./RepositoryCardSkeleton";
-import { useState } from "react";
-import { TeamDashboardData } from "@/types";
 
 export default function RepositoryList() {
   const { isConfigured, config } = useConfig();
   const { user } = useAuth();
-  const [selectedRepo, setSelectedRepo] = useState<TeamDashboardData | null>(null);
   const {
     loading,
     refreshing,
