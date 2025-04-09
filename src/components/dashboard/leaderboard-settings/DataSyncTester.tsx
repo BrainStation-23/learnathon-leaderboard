@@ -36,7 +36,14 @@ export function DataSyncTester() {
       }
 
       addLog("Data sync completed successfully!");
-      addLog(JSON.stringify(response.data, null, 2));
+      
+      if (response.data) {
+        if (typeof response.data === 'string') {
+          addLog(response.data);
+        } else {
+          addLog(JSON.stringify(response.data, null, 2));
+        }
+      }
       
       toast({
         title: "Data Sync Complete",
