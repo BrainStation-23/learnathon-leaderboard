@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData } from "@/types";
 import { logger } from "../logService";
-import { subMonths, isAfter, parseISO, isBefore } from "date-fns";
+import { parseISO } from "date-fns";
 
 export interface ContributorStats {
   reposWithOneActiveContributor: number;
@@ -17,13 +17,7 @@ export interface ContributorStats {
 
 export async function getContributorStats(repos: TeamDashboardData[]): Promise<ContributorStats> {
   try {
-    // Get the filtered contributors list from configurations
-    const { data: configData, error: configError } = await supabase
-      .from('configurations')
-      .select('filtered_contributors')
-      .single();
-    
-    // Initialize stats
+    // Initialize stats with zeros
     const stats = {
       reposWithOneActiveContributor: 0,
       reposWithTwoActiveContributors: 0,
@@ -35,60 +29,39 @@ export async function getContributorStats(repos: TeamDashboardData[]): Promise<C
       activeContributorsCount: 0
     };
     
-    // Set of filtered contributor logins
-    const filteredLogins = new Set(
-      configError ? [] : configData?.filtered_contributors || []
-    );
-    
-    // Get the current date and calculate one month ago for activity check
+    // Get the current date for activity tracking
     const now = new Date();
-    const oneMonthAgo = subMonths(now, 1);
     
     // Set of all active contributor logins - to count unique contributors
     const allActiveContributors = new Set<string>();
     
-    // Process each repository
+    // Fetch the contributor distribution data from the updated database function
+    const { data: distributionData, error: distributionError } = await supabase
+      .rpc('get_contributor_distribution')
+      .single();
+    
+    if (!distributionError && distributionData) {
+      stats.reposWithOneActiveContributor = Number(distributionData.reposwithoneactivecontributor) || 0;
+      stats.reposWithTwoActiveContributors = Number(distributionData.reposwithtwoactivecontributors) || 0;
+      stats.reposWithThreeActiveContributors = Number(distributionData.reposwiththreeactivecontributors) || 0;
+      stats.reposWithNoRecentActivity = Number(distributionData.reposwithnorecentactivity) || 0;
+    } else {
+      logger.error("Error fetching contributor distribution", { error: distributionError });
+    }
+    
+    // Process repositories to count active contributors
     for (const repo of repos) {
-      // Check if this repository has no recent activity
-      const lastCommitDate = repo.repoData.last_commit_date 
-        ? parseISO(repo.repoData.last_commit_date)
-        : null;
-        
-      if (!lastCommitDate || isBefore(lastCommitDate, oneMonthAgo)) {
-        stats.reposWithNoRecentActivity++;
-      }
-      
-      // Filter contributors who:
-      // 1. Are not in the filtered list
-      // 2. Have activity in the last 30 days (we'll use the repository's last commit date as a proxy)
-      const recentActiveContributors = (repo.repoData.contributors || [])
-        .filter(contributor => {
-          // Check if contributor is not in filtered list
-          const notFiltered = !filteredLogins.has(contributor.login.toLowerCase());
-          
-          // For this specific repository, consider contributor active if:
-          // - The repository has activity in the last 30 days
-          // - The contributor has made contributions to this repository
-          const isRecentlyActive = lastCommitDate && isAfter(lastCommitDate, oneMonthAgo);
-          
-          return notFiltered && isRecentlyActive;
-        });
-      
-      // Count repositories by active contributor count
-      const activeCount = recentActiveContributors.length;
-      
-      if (activeCount === 1) {
-        stats.reposWithOneActiveContributor++;
-      } else if (activeCount === 2) {
-        stats.reposWithTwoActiveContributors++;
-      } else if (activeCount >= 3) {
-        stats.reposWithThreeActiveContributors++;
-      }
-      
       // Add active contributors to the overall set
-      recentActiveContributors.forEach(contributor => {
-        allActiveContributors.add(contributor.login);
-      });
+      if (repo.repoData.last_commit_date) {
+        const lastCommitDate = parseISO(repo.repoData.last_commit_date);
+        const isRecentlyActive = lastCommitDate && (now.getTime() - lastCommitDate.getTime() < 30 * 24 * 60 * 60 * 1000);
+        
+        if (isRecentlyActive && repo.repoData.contributors) {
+          repo.repoData.contributors.forEach(contributor => {
+            allActiveContributors.add(contributor.login);
+          });
+        }
+      }
       
       // Fetch tech stacks for this repository
       await fetchAndCountTechStacks(repo.repoData.id, stats);
@@ -133,7 +106,7 @@ async function fetchAndCountTechStacks(
           name
         )
       `)
-      .eq('repository_id', repoId.toString()); // Convert repoId to string here
+      .eq('repository_id', repoId.toString());
 
     if (techStackError) {
       logger.error(`Error fetching tech stacks for repo ID ${repoId}`, { error: techStackError });
@@ -161,9 +134,9 @@ async function fetchFilteredRepoStats(): Promise<{
 }> {
   try {
     // Fetch filtered repositories with their labels
-    const { data, error } = await (supabase
+    const { data, error } = await supabase
       .from('filtered_repositories')
-      .select('label'));
+      .select('label');
     
     if (error) {
       logger.error("Error fetching filtered repositories:", { error });

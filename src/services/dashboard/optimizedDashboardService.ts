@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData, GitHubContributor } from "@/types";
 import { logger } from "../logService";
@@ -72,7 +73,7 @@ interface ContributorDistributionResponse {
   reposwithnorecentactivity: number;
 }
 
-// Contributor distribution across repositories
+// Contributor distribution across repositories - using updated database function
 async function fetchContributorDistribution() {
   try {
     const { data, error } = await supabase
@@ -225,10 +226,10 @@ async function fetchStackDistribution() {
 // This function is still needed for other parts of the app
 export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
   try {
-    // Fetch filtered repository IDs first with type assertion
-    const { data: filteredRepoIds, error: filteredRepoError } = await (supabase
+    // Fetch filtered repository IDs first
+    const { data: filteredRepoIds, error: filteredRepoError } = await supabase
       .from('filtered_repositories')
-      .select('repository_id'));
+      .select('repository_id');
     
     if (filteredRepoError) {
       logger.error("Error fetching filtered repositories:", { error: filteredRepoError });
