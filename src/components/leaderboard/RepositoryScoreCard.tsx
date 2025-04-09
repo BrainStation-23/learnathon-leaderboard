@@ -36,7 +36,16 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
                 </Badge>
               )}
             </div>
-            <CardTitle className="text-xl">{item.repositoryName}</CardTitle>
+            <CardTitle className="text-xl">
+              <a 
+                href={item.githubUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-blue-600 hover:underline transition-colors"
+              >
+                {item.repositoryName}
+              </a>
+            </CardTitle>
             
             {/* Display Tech Stack Icons */}
             <div className="mt-2">

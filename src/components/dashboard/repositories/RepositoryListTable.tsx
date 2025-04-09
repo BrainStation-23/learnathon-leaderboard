@@ -81,7 +81,15 @@ export default function RepositoryListTable({
                     onClick={() => onSelectRepository(repo)}
                   >
                     <TableCell className="font-medium">
-                      {repo.repoData.name}
+                      <a 
+                        href={repo.repoData.html_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-blue-600 hover:underline transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {repo.repoData.name}
+                      </a>
                     </TableCell>
                     <TableCell>
                       {formatDate(repo.repoData.last_commit_date)}

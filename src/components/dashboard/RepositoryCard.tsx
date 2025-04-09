@@ -80,7 +80,16 @@ export default function RepositoryCard({ data }: RepositoryCardProps) {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-hackathon-900 to-hackathon-800 text-white">
-        <CardTitle className="text-lg">{data.repoData.name}</CardTitle>
+        <CardTitle className="text-lg">
+          <a 
+            href={data.repoData.html_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-blue-200 hover:underline transition-colors"
+          >
+            {data.repoData.name}
+          </a>
+        </CardTitle>
         <CardDescription className="text-gray-300">
           {data.repoData.description || "No description available"}
         </CardDescription>
