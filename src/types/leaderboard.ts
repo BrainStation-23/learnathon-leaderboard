@@ -27,4 +27,5 @@ export interface LeaderboardItem {
   contributors?: GitHubContributor[];
   commitsCount?: number;
   techStacks?: string[];
+  githubUrl?: string; // Added this property to store the GitHub repository URL
 }

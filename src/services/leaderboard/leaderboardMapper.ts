@@ -74,6 +74,7 @@ export function mapToLeaderboardItem(
     complexityScore: calculateComplexityScore(repository.complexity),
     lastUpdated: repository.updated_at,
     contributors: filteredContributors,
-    commitsCount: totalCommits
+    commitsCount: totalCommits,
+    githubUrl: repository.html_url // Add GitHub URL to the LeaderboardItem
   };
 }

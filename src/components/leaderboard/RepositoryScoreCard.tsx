@@ -38,7 +38,7 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
             </div>
             <CardTitle className="text-xl">
               <a 
-                href={item.githubUrl} 
+                href={item.githubUrl || "#"} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="hover:text-blue-600 hover:underline transition-colors"

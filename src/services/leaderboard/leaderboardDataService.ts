@@ -119,6 +119,7 @@ export async function fetchLeaderboardData(): Promise<LeaderboardItem[]> {
         // Get tech stacks for this repository
         const techStacks = techStacksMap[item.id] || [];
         
+        // Map the repository data to a LeaderboardItem, including the html_url
         return {
           ...mapToLeaderboardItem(item, allContributors, filteredContributorsList),
           techStacks
