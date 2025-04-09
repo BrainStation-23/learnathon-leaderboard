@@ -5,8 +5,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Users, GitCommit, AlertTriangle, Bug, Shield, Code } from "lucide-react";
+import { Calendar, Users, GitCommit, AlertTriangle, Bug, Shield, Code, BookOpen, AlertCircle } from "lucide-react";
 import ContributorsDisplay from "./ContributorsDisplay";
+import { formatDistanceToNow } from "date-fns";
 
 type RepositoryCardProps = {
   data: TeamDashboardData;
@@ -19,6 +20,61 @@ export default function RepositoryCard({ data }: RepositoryCardProps) {
       month: "short",
       day: "numeric",
     });
+  };
+
+  const renderSecurityIssuesSummary = () => {
+    if (!data.securityIssues || data.securityIssues.length === 0) {
+      return (
+        <div className="flex items-center justify-center py-2">
+          <Shield className="h-4 w-4 text-green-500 mr-2" />
+          <span className="text-sm text-green-600">No security issues detected</span>
+        </div>
+      );
+    }
+
+    // Count issues by severity
+    const severityCounts = data.securityIssues.reduce((acc, issue) => {
+      const severity = issue.severity.toLowerCase();
+      acc[severity] = (acc[severity] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return (
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground">Security Issues</h4>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col items-center p-1 bg-red-50 rounded-md">
+            <AlertCircle className="h-4 w-4 text-red-500 mb-1" />
+            <span className="text-sm font-bold">{severityCounts.critical || 0}</span>
+            <span className="text-xs text-muted-foreground">Critical</span>
+          </div>
+          <div className="flex flex-col items-center p-1 bg-orange-50 rounded-md">
+            <AlertTriangle className="h-4 w-4 text-orange-500 mb-1" />
+            <span className="text-sm font-bold">{severityCounts.high || 0}</span>
+            <span className="text-xs text-muted-foreground">High</span>
+          </div>
+          <div className="flex flex-col items-center p-1 bg-yellow-50 rounded-md">
+            <AlertTriangle className="h-4 w-4 text-yellow-500 mb-1" />
+            <span className="text-sm font-bold">{(severityCounts.moderate || 0) + (severityCounts.medium || 0)}</span>
+            <span className="text-xs text-muted-foreground">Medium</span>
+          </div>
+        </div>
+
+        {data.securityIssues.length > 0 && (
+          <div className="mt-1">
+            <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
+              <a 
+                href={`${data.repoData.html_url}/security/dependabot`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                View All Issues
+              </a>
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -57,6 +113,19 @@ export default function RepositoryCard({ data }: RepositoryCardProps) {
               </div>
             </div>
             
+            {/* License info */}
+            {data.repoData.license && (
+              <div className="mt-2 flex items-center">
+                <BookOpen className="h-4 w-4 text-blue-600 mr-2" />
+                <div>
+                  <span className="text-xs text-muted-foreground mr-1">License:</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {data.repoData.license.spdx_id || data.repoData.license.name}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            
             {/* Contributors display */}
             <div className="mt-4">
               <h4 className="text-xs font-medium text-muted-foreground mb-2">Top Contributors</h4>
@@ -65,6 +134,9 @@ export default function RepositoryCard({ data }: RepositoryCardProps) {
                 maxToShow={5} 
               />
             </div>
+            
+            {/* Security Issues */}
+            {renderSecurityIssuesSummary()}
           </div>
           
           <Separator />

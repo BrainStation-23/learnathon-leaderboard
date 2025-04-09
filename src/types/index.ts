@@ -11,12 +11,23 @@ export interface GitHubRepoData {
   license?: {
     name: string;
     url: string;
+    spdx_id?: string;
   };
+  security_issues?: GitHubSecurityIssue[];
   contributors_count?: number;
   commits_count?: number;
   contributors?: GitHubContributor[];
   // Added for UI purpose
   isLoading?: boolean;
+}
+
+export interface GitHubSecurityIssue {
+  id: number;
+  title: string;
+  state: string;
+  html_url: string;
+  published_at: string;
+  severity: string;
 }
 
 export interface GitHubContributor {
@@ -57,4 +68,5 @@ export interface ProjectConfig {
 export interface TeamDashboardData {
   repoData: GitHubRepoData;
   sonarData?: SonarCloudData;
+  securityIssues?: GitHubSecurityIssue[];
 }

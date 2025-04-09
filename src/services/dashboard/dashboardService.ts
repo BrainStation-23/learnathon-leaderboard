@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { TeamDashboardData, GitHubContributor } from "@/types";
+import { TeamDashboardData, GitHubContributor, GitHubSecurityIssue } from "@/types";
 import { logger } from "../logService";
 
 export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
@@ -33,7 +33,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       !filteredRepositoryIds.has(item.id)
     );
 
-    // Fetch contributors for each repository
+    // Process each repository to fetch contributors and security issues
     const repos = await Promise.all((filteredReposData || []).map(async (item) => {
       // Get top contributors for this repository
       // Use the any type to bypass TypeScript's type checking for now
@@ -48,12 +48,33 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
         logger.error(`Error fetching contributors for repo ${item.name}`, { error: contribError });
       }
 
+      // Get security issues for this repository
+      const { data: securityIssueRows, error: securityError } = await supabase
+        .from('security_issues')
+        .select('*')
+        .eq('repository_id', item.id)
+        .order('published_at', { ascending: false });
+      
+      if (securityError) {
+        logger.error(`Error fetching security issues for repo ${item.name}`, { error: securityError });
+      }
+
       // Transform contributors data to match the GitHubContributor type
       const contributors: GitHubContributor[] = (contributorRows || []).map(contributor => ({
         id: contributor.github_id,
         login: contributor.login,
         avatar_url: contributor.avatar_url || '',
         contributions: contributor.contributions
+      }));
+      
+      // Transform security issues data
+      const securityIssues: GitHubSecurityIssue[] = (securityIssueRows || []).map(issue => ({
+        id: Number(issue.id.replace(/-/g, '')),
+        title: issue.title,
+        state: issue.state || 'open',
+        html_url: issue.html_url || '',
+        published_at: issue.published_at || new Date().toISOString(),
+        severity: issue.severity
       }));
       
       // Transform the data to match our TeamDashboardData type
@@ -69,7 +90,12 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
           last_commit_date: item.last_commit_date?.toString() || null,
           contributors_count: item.contributors_count || 0,
           commits_count: item.commits_count || 0,
-          contributors: contributors
+          contributors: contributors,
+          license: item.license_name ? {
+            name: item.license_name,
+            url: item.license_url || '',
+            spdx_id: item.license_spdx_id
+          } : undefined
         },
         sonarData: item.sonar_project_key ? {
           project_key: item.sonar_project_key,
@@ -83,7 +109,8 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
             technical_debt: item.technical_debt,
             complexity: item.complexity
           }
-        } : undefined
+        } : undefined,
+        securityIssues: securityIssues.length > 0 ? securityIssues : undefined
       };
     }));
     

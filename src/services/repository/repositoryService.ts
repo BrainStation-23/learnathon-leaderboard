@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { GitHubRepoData } from "@/types";
+import { GitHubRepoData, GitHubSecurityIssue } from "@/types";
 import { logger } from "../logService";
 import { ProgressCallback } from "./types";
 
@@ -27,6 +27,9 @@ export async function saveRepositoryData(
               github_repo_id: typeof repo.id === 'string' ? parseInt(repo.id, 10) || null : repo.id,
               github_full_name: repo.full_name,
               html_url: repo.html_url,
+              license_name: repo.license?.name || null,
+              license_url: repo.license?.url || null,
+              license_spdx_id: repo.license?.spdx_id || null,
               updated_at: new Date().toISOString()
             },
             { onConflict: "github_repo_id", ignoreDuplicates: false }
@@ -48,6 +51,11 @@ export async function saveRepositoryData(
         // Save contributors data if available
         if (repo.contributors && repo.contributors.length > 0) {
           await saveContributors(repositoryId, repo.contributors, userId);
+        }
+        
+        // Save security issues if available
+        if (repo.security_issues && repo.security_issues.length > 0) {
+          await saveSecurityIssues(repositoryId, repo.security_issues, userId);
         }
       } catch (repoError) {
         logger.error(`Unexpected error processing repo ${repo.name}`, { error: repoError }, userId, 'repositories');
@@ -146,6 +154,41 @@ async function saveContributors(
     }
   } catch (contribError) {
     logger.error(`Error processing contributors`, { error: contribError }, userId, 'contributors');
+  }
+}
+
+async function saveSecurityIssues(
+  repositoryId: string,
+  securityIssues: GitHubSecurityIssue[],
+  userId: string
+): Promise<void> {
+  try {
+    // Process each security issue
+    for (const issue of securityIssues) {
+      const { error } = await supabase
+        .from("security_issues")
+        .upsert({
+          repository_id: repositoryId,
+          title: issue.title,
+          severity: issue.severity,
+          published_at: issue.published_at,
+          html_url: issue.html_url,
+          state: issue.state,
+          updated_at: new Date().toISOString()
+        }, {
+          // Since we don't have a unique ID from GitHub that's guaranteed,
+          // we'll use repository_id + title as our composite key
+          onConflict: "repository_id,title"
+        });
+      
+      if (error) {
+        logger.error(`Error saving security issue for repository ${repositoryId}`, { error, issue }, userId, 'security_issues');
+      }
+    }
+    
+    logger.info(`Saved ${securityIssues.length} security issues for repository ${repositoryId}`, {}, userId, 'security_issues');
+  } catch (error) {
+    logger.error(`Error processing security issues for repository ${repositoryId}`, { error }, userId, 'security_issues');
   }
 }
 

@@ -153,6 +153,9 @@ export type Database = {
           github_repo_id: number | null
           html_url: string | null
           id: string
+          license_name: string | null
+          license_spdx_id: string | null
+          license_url: string | null
           name: string
           team_id: string | null
           updated_at: string
@@ -164,6 +167,9 @@ export type Database = {
           github_repo_id?: number | null
           html_url?: string | null
           id?: string
+          license_name?: string | null
+          license_spdx_id?: string | null
+          license_url?: string | null
           name: string
           team_id?: string | null
           updated_at?: string
@@ -175,6 +181,9 @@ export type Database = {
           github_repo_id?: number | null
           html_url?: string | null
           id?: string
+          license_name?: string | null
+          license_spdx_id?: string | null
+          license_url?: string | null
           name?: string
           team_id?: string | null
           updated_at?: string
@@ -256,6 +265,50 @@ export type Database = {
             columns: ["tech_stack_id"]
             isOneToOne: false
             referencedRelation: "tech_stacks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_issues: {
+        Row: {
+          created_at: string
+          html_url: string | null
+          id: string
+          published_at: string | null
+          repository_id: string
+          severity: string
+          state: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          html_url?: string | null
+          id?: string
+          published_at?: string | null
+          repository_id: string
+          severity: string
+          state?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          html_url?: string | null
+          id?: string
+          published_at?: string | null
+          repository_id?: string
+          severity?: string
+          state?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_issues_repository_id_fkey"
+            columns: ["repository_id"]
+            isOneToOne: false
+            referencedRelation: "repositories"
             referencedColumns: ["id"]
           },
         ]
@@ -395,6 +448,9 @@ export type Database = {
           contributors_count: number
           commits_count: number
           last_commit_date: string
+          license_name: string
+          license_url: string
+          license_spdx_id: string
           sonar_project_key: string
           lines_of_code: number
           coverage: number
