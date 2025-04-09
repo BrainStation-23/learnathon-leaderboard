@@ -49,18 +49,18 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       }
 
       // Get security issues for this repository
-      const { data: securityIssueRows, error: securityError } = await supabase
-        .from('security_issues')
+      const { data: securityIssueRows, error: securityError } = await (supabase
+        .from('security_issues' as any)
         .select('*')
         .eq('repository_id', item.id)
-        .order('published_at', { ascending: false });
+        .order('published_at', { ascending: false }));
       
       if (securityError) {
         logger.error(`Error fetching security issues for repo ${item.name}`, { error: securityError });
       }
 
       // Transform contributors data to match the GitHubContributor type
-      const contributors: GitHubContributor[] = (contributorRows || []).map(contributor => ({
+      const contributors: GitHubContributor[] = (contributorRows || []).map((contributor: any) => ({
         id: contributor.github_id,
         login: contributor.login,
         avatar_url: contributor.avatar_url || '',
@@ -68,13 +68,13 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
       }));
       
       // Transform security issues data
-      const securityIssues: GitHubSecurityIssue[] = (securityIssueRows || []).map(issue => ({
-        id: Number(issue.id.replace(/-/g, '')),
-        title: issue.title,
+      const securityIssues: GitHubSecurityIssue[] = (securityIssueRows || []).map((issue: any) => ({
+        id: Number(issue.id.replace(/-/g, '')) || Math.random(),
+        title: issue.title || '',
         state: issue.state || 'open',
         html_url: issue.html_url || '',
         published_at: issue.published_at || new Date().toISOString(),
-        severity: issue.severity
+        severity: issue.severity || 'low'
       }));
       
       // Transform the data to match our TeamDashboardData type
@@ -94,7 +94,7 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
           license: item.license_name ? {
             name: item.license_name,
             url: item.license_url || '',
-            spdx_id: item.license_spdx_id
+            spdx_id: item.license_spdx_id || ''
           } : undefined
         },
         sonarData: item.sonar_project_key ? {

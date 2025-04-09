@@ -165,8 +165,8 @@ async function saveSecurityIssues(
   try {
     // Process each security issue
     for (const issue of securityIssues) {
-      const { error } = await supabase
-        .from("security_issues")
+      const { error } = await (supabase
+        .from("security_issues" as any)
         .upsert({
           repository_id: repositoryId,
           title: issue.title,
@@ -179,7 +179,7 @@ async function saveSecurityIssues(
           // Since we don't have a unique ID from GitHub that's guaranteed,
           // we'll use repository_id + title as our composite key
           onConflict: "repository_id,title"
-        });
+        }));
       
       if (error) {
         logger.error(`Error saving security issue for repository ${repositoryId}`, { error, issue }, userId, 'security_issues');
