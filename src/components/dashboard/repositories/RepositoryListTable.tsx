@@ -3,7 +3,10 @@ import { formatDistanceToNow } from "date-fns";
 import { TeamDashboardData } from "@/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface RepositoryListTableProps {
   repositories: TeamDashboardData[];
@@ -16,6 +19,7 @@ export default function RepositoryListTable({
   selectedRepo, 
   onSelectRepository 
 }: RepositoryListTableProps) {
+  const navigate = useNavigate();
   
   // Format date for display
   const formatDate = (dateString?: string) => {
@@ -46,6 +50,11 @@ export default function RepositoryListTable({
     return issues;
   };
 
+  // Navigate to repository details page
+  const handleViewDetails = (repo: TeamDashboardData) => {
+    navigate(`/repositories/${repo.repoData.id}`);
+  };
+
   return (
     <Card>
       <CardContent className="p-0">
@@ -57,6 +66,7 @@ export default function RepositoryListTable({
                 <TableHead>Last Update</TableHead>
                 <TableHead>Contributors</TableHead>
                 <TableHead>Security</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -93,6 +103,20 @@ export default function RepositoryListTable({
                       ) : (
                         <Badge variant="outline" className="bg-green-50 text-green-600">Secure</Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="ml-auto gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(repo);
+                        }}
+                      >
+                        <span>Details</span>
+                        <ExternalLink size={14} />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
