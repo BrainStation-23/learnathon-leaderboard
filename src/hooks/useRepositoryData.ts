@@ -6,3 +6,6 @@ export default useRepositoryData;
 
 // Re-export the types
 export type { ProgressCallback } from "./repository/types";
+
+// Re-export everything from the hook for backward compatibility
+export * from "./repository/useRepositoryData";
