@@ -410,6 +410,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ensure_admin_config: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_contributor_distribution: {
         Args: Record<PropertyKey, never>
         Returns: {
