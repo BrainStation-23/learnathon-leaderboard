@@ -10,6 +10,12 @@ import {
 } from "recharts";
 import { GitHubContributor } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  TooltipProvider,
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface RepositoryContributorsProps {
   contributors: GitHubContributor[] | undefined;
@@ -54,16 +60,29 @@ export function RepositoryContributors({ contributors, totalCommits }: Repositor
   // Generate unique colors for each contributor
   const colors = ["#4f46e5", "#7c3aed", "#db2777", "#ef4444", "#f97316", "#f59e0b"];
 
-  // Custom tooltip formatter to display contributor name and percentage
+  // Custom tooltip formatter to display all contributor percentages
   const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const contributorName = payload[0].dataKey;
-      const percentage = payload[0].value.toFixed(1);
-
+    if (active && payload) {
       return (
         <div className="bg-background border p-2 rounded-md shadow-md text-xs">
-          <p className="font-medium mb-1">{contributorName}</p>
-          <p className="text-muted-foreground">{percentage}% of contributions</p>
+          <p className="font-medium mb-1">Contributors</p>
+          <div className="space-y-1">
+            {topContributors.map((contributor, index) => {
+              const percentage = contributionData[0][contributor.login].toFixed(1);
+              return (
+                <div key={contributor.id} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1">
+                    <div 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: colors[index % colors.length] }} 
+                    />
+                    <span>{contributor.login}</span>
+                  </div>
+                  <span className="text-muted-foreground">{percentage}%</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       );
     }
@@ -93,28 +112,37 @@ export function RepositoryContributors({ contributors, totalCommits }: Repositor
         ))}
       </div>
 
-      <div className="h-8">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            layout="vertical"
-            data={contributionData}
-            stackOffset="expand"
-            barSize={24}
-          >
-            <XAxis hide type="number" />
-            <YAxis hide type="category" dataKey="name" />
-            <Tooltip content={<CustomTooltip />} />
-            {topContributors.map((contributor, index) => (
-              <Bar
-                key={contributor.login}
-                dataKey={contributor.login}
-                stackId="a"
-                fill={colors[index % colors.length]}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <TooltipProvider>
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <div className="h-8">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  layout="vertical"
+                  data={contributionData}
+                  stackOffset="expand"
+                  barSize={24}
+                >
+                  <XAxis hide type="number" />
+                  <YAxis hide type="category" dataKey="name" />
+                  <Tooltip content={<CustomTooltip />} />
+                  {topContributors.map((contributor, index) => (
+                    <Bar
+                      key={contributor.login}
+                      dataKey={contributor.login}
+                      stackId="a"
+                      fill={colors[index % colors.length]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">View contributor breakdown</p>
+          </TooltipContent>
+        </UITooltip>
+      </TooltipProvider>
     </div>
   );
 }
