@@ -162,7 +162,7 @@ async function fetchFilteredRepoStats(): Promise<{
   try {
     // Fetch filtered repositories with their labels
     const { data, error } = await (supabase
-      .from('filtered_repositories' as any)
+      .from('filtered_repositories')
       .select('label'));
     
     if (error) {

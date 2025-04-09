@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData, GitHubContributor } from "@/types";
 import { logger } from "../logService";
@@ -13,15 +12,13 @@ export async function fetchDashboardOverview() {
       contributorDistribution,
       activityData,
       filterStats,
-      stackDistribution,
-      monthlyActivity
+      stackDistribution
     ] = await Promise.all([
       fetchRepositoryStats(),
       fetchContributorDistribution(),
       fetchRepositoryActivity(),
       fetchFilterStats(),
-      fetchStackDistribution(),
-      fetchMonthlyActivity()
+      fetchStackDistribution()
     ]);
 
     return {
@@ -29,8 +26,7 @@ export async function fetchDashboardOverview() {
       contributorDistribution,
       activityData,
       filterStats,
-      stackDistribution,
-      monthlyActivity
+      stackDistribution
     };
   } catch (error) {
     logger.error("Error fetching optimized dashboard data", { error });
@@ -226,39 +222,6 @@ async function fetchStackDistribution() {
   }
 }
 
-// Monthly activity response type
-interface MonthlyActivityItem {
-  month: string;
-  commit_count: number;
-}
-
-// Monthly commit activity
-async function fetchMonthlyActivity() {
-  try {
-    const { data, error } = await supabase
-      .rpc('get_monthly_commit_activity');
-    
-    if (error) {
-      logger.error("Error fetching monthly activity", { error });
-      return [];
-    }
-    
-    if (!data || !Array.isArray(data)) {
-      return [];
-    }
-    
-    const typedData = data as unknown as MonthlyActivityItem[];
-    
-    return typedData.map(item => ({
-      month: item.month || '',
-      commits: Number(item.commit_count) || 0
-    }));
-  } catch (error) {
-    logger.error("Error in fetchMonthlyActivity", { error });
-    return [];
-  }
-}
-
 // This function is still needed for other parts of the app
 export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
   try {
@@ -348,4 +311,3 @@ export async function fetchDashboardData(): Promise<TeamDashboardData[]> {
     throw error;
   }
 }
-
