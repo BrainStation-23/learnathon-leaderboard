@@ -198,9 +198,9 @@ interface DetailedStackDistributionItem {
 // Tech stack distribution with detailed metrics
 async function fetchDetailedStackDistribution() {
   try {
+    // Fix: Use rpc instead of from for calling a database function
     const { data, error } = await supabase
-      .from('get_detailed_stack_distribution')
-      .select('*');
+      .rpc('get_detailed_stack_distribution');
     
     if (error) {
       logger.error("Error fetching detailed stack distribution", { error });
