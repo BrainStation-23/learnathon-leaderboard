@@ -1,6 +1,6 @@
 
 import { useConfig } from "@/context/ConfigContext";
-import { fetchRepositoriesForOrg, fetchRepoDetails } from "@/services/githubService";
+import { fetchRepositoriesForOrg, fetchRepoDetails } from "@/services/github";
 import { saveRepositoryData } from "@/services/repository/repositoryService";
 import { logger } from "@/services/logService";
 import { ProgressCallback } from "./types";
@@ -68,3 +68,4 @@ export async function fetchAndSaveGithubData(
     throw error;
   }
 }
+
