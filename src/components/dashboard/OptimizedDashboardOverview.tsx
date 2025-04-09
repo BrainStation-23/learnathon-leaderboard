@@ -12,12 +12,14 @@ import LoadingState from "./overview/LoadingState";
 import AuthRequiredCard from "./overview/AuthRequiredCard";
 import ContributorStatsCards from "./overview/ContributorStatsCards";
 import StackDistributionTable from "./overview/StackDistributionTable";
+import StackDistributionChart from "./overview/StackDistributionChart";
 import FilterStatsCard from "./overview/FilterStatsCard";
 
 // Import skeleton components
 import StatsCardSkeleton from "./overview/StatsCardSkeleton";
 import ContributorStatsCardSkeleton from "./overview/ContributorStatsCardSkeleton";
 import StackDistributionSkeleton from "./overview/StackDistributionSkeleton";
+import StackDistributionChartSkeleton from "./overview/StackDistributionChartSkeleton";
 
 export default function OptimizedDashboardOverview() {
   const { isConfigured } = useConfig();
@@ -105,8 +107,19 @@ export default function OptimizedDashboardOverview() {
         />
       )}
       
-      <div className="grid gap-6 grid-cols-1">
-        {/* Stack Distribution */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+        {/* Stack Distribution Chart */}
+        {isStackDistributionLoading ? (
+          <StackDistributionChartSkeleton />
+        ) : (
+          <StackDistributionChart 
+            stackDistribution={dashboardStats.stackDistribution}
+            droppedOutByStack={dashboardStats.droppedOutByStack}
+            inactiveByStack={dashboardStats.inactiveByStack}
+          />
+        )}
+        
+        {/* Stack Distribution Table */}
         {isStackDistributionLoading ? (
           <StackDistributionSkeleton />
         ) : (

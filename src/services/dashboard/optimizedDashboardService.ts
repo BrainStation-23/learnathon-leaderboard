@@ -19,7 +19,7 @@ export async function fetchDashboardOverview() {
       fetchContributorDistribution(),
       fetchRepositoryActivity(),
       fetchFilterStats(),
-      fetchStackDistribution()
+      fetchDetailedStackDistribution()
     ]);
 
     return {
@@ -188,38 +188,56 @@ export async function fetchFilterStats() {
 }
 
 // Stack distribution response type
-interface StackDistributionItem {
+interface DetailedStackDistributionItem {
   name: string;
-  count: number;
+  total_count: number;
+  dropped_out_count: number;
+  inactive_count: number;
 }
 
 // Tech stack distribution
-async function fetchStackDistribution() {
+async function fetchDetailedStackDistribution() {
   try {
     const { data, error } = await supabase
-      .rpc('get_stack_distribution');
+      .rpc('get_detailed_stack_distribution');
     
     if (error) {
-      logger.error("Error fetching stack distribution", { error });
-      return {};
+      logger.error("Error fetching detailed stack distribution", { error });
+      return {
+        distribution: {},
+        droppedOutByStack: {},
+        inactiveByStack: {}
+      };
     }
     
     // Format the data into the expected structure
     const distribution: Record<string, number> = {};
+    const droppedOutByStack: Record<string, number> = {};
+    const inactiveByStack: Record<string, number> = {};
     
     if (data && Array.isArray(data)) {
-      const typedData = data as unknown as StackDistributionItem[];
+      const typedData = data as unknown as DetailedStackDistributionItem[];
       typedData.forEach(item => {
-        if (item.name && item.count) {
-          distribution[item.name] = Number(item.count);
+        if (item.name) {
+          distribution[item.name] = Number(item.total_count) || 0;
+          droppedOutByStack[item.name] = Number(item.dropped_out_count) || 0;
+          inactiveByStack[item.name] = Number(item.inactive_count) || 0;
         }
       });
     }
     
-    return distribution;
+    return {
+      distribution,
+      droppedOutByStack,
+      inactiveByStack
+    };
   } catch (error) {
-    logger.error("Error in fetchStackDistribution", { error });
-    return {};
+    logger.error("Error in fetchDetailedStackDistribution", { error });
+    return {
+      distribution: {},
+      droppedOutByStack: {},
+      inactiveByStack: {}
+    };
   }
 }
 

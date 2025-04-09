@@ -419,6 +419,15 @@ export type Database = {
           reposwithnorecentactivity: number
         }[]
       }
+      get_detailed_stack_distribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          name: string
+          total_count: number
+          dropped_out_count: number
+          inactive_count: number
+        }[]
+      }
       get_filter_stats: {
         Args: Record<PropertyKey, never>
         Returns: {

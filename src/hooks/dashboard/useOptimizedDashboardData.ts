@@ -28,6 +28,8 @@ export interface DashboardStats {
     other: number;
   };
   stackDistribution: Record<string, number>;
+  droppedOutByStack: Record<string, number>;
+  inactiveByStack: Record<string, number>;
 }
 
 export default function useOptimizedDashboardData() {
@@ -65,7 +67,9 @@ export default function useOptimizedDashboardData() {
       gotJob: 0,
       other: 0
     },
-    stackDistribution: {}
+    stackDistribution: {},
+    droppedOutByStack: {},
+    inactiveByStack: {}
   });
 
   // Fetch dashboard overview data
