@@ -4,11 +4,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 const SUPABASE_URL = "https://gxfdqrussltcibptiltm.supabase.co"
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-// CORS headers for browser requests
+// CORS headers for browser requests - Ensure these are properly applied to all responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  'Access-Control-Max-Age': '86400', // Cache preflight requests for 24 hours
+};
 
 interface SonarMetrics {
   lines_of_code?: number;
@@ -74,9 +76,12 @@ interface ProgressData {
 
 // Main function to handle requests
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight requests - This is crucial for browser-based requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204, 
+      headers: corsHeaders 
+    });
   }
 
   try {

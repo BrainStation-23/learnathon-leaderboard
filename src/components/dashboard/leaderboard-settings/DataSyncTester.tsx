@@ -27,10 +27,19 @@ export function DataSyncTester() {
     addLog("Starting data sync process...");
     
     try {
-      const response = await supabase.functions.invoke('data-sync', {
+      // Set a longer timeout for this operation - 60 seconds (this doesn't directly affect the fetch, just our UI state)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Request timed out after 60 seconds")), 60000);
+      });
+      
+      // Actual function invocation
+      const functionPromise = supabase.functions.invoke('data-sync', {
         body: { source: 'manual' }
       });
-
+      
+      // Race between timeout and actual function call
+      const response = await Promise.race([functionPromise, timeoutPromise]) as any;
+      
       if (response.error) {
         throw new Error(response.error.message || 'Failed to run data sync');
       }
@@ -52,14 +61,26 @@ export function DataSyncTester() {
       
       logger.info("Data sync triggered manually", { response: response.data });
     } catch (error) {
-      addLog(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addLog(`Error: ${errorMessage}`);
       console.error("Data sync error:", error);
       
-      toast({
-        title: "Data Sync Failed",
-        description: "There was a problem running the data sync process.",
-        variant: "destructive"
-      });
+      // Show a more helpful error message
+      if (errorMessage.includes("timed out")) {
+        addLog("The data sync process is taking longer than expected. This is normal for large repositories.");
+        addLog("The process will continue running in the background. Check the logs in the Supabase dashboard.");
+        
+        toast({
+          title: "Data Sync Running",
+          description: "The process is taking longer than expected and will continue in the background.",
+        });
+      } else {
+        toast({
+          title: "Data Sync Failed",
+          description: "There was a problem running the data sync process.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
