@@ -1,9 +1,8 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 // Constants and types
 const SUPABASE_URL = "https://gxfdqrussltcibptiltm.supabase.co"
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4ZmRxcnVzc2x0Y2licHRpbHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NDE1NjUsImV4cCI6MjA1OTUxNzU2NX0.aJbVEWeoKnzIUiafuhHvTyGznae7B-YnFCznc6ZU3G0"
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -88,8 +87,8 @@ Deno.serve(async (req) => {
     // Log the start of the operation
     console.log(`Starting data sync operation - Automated: ${automated}, Source: ${source}`);
     
-    // Create Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Create Supabase client with service role key to bypass RLS
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     // 1. Get admin configuration
     const { data: configData, error: configError } = await supabase
