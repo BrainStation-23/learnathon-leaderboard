@@ -46,17 +46,7 @@ export default function LoadingState() {
         ))}
       </div>
       
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-1/3" />
-            <Skeleton className="h-4 w-1/4 mt-1" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
-        
+      <div className="grid gap-6 grid-cols-1">
         <Card>
           <CardHeader>
             <Skeleton className="h-6 w-1/3" />

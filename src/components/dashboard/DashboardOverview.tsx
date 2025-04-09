@@ -8,7 +8,6 @@ import useDashboardData from "@/hooks/dashboard/useDashboardData";
 
 // Import components
 import StatsCards from "./overview/StatsCards";
-import CommitActivityHeatMap from "./overview/CommitActivityHeatMap";
 import DashboardHeader from "./overview/DashboardHeader";
 import LoadingState from "./overview/LoadingState";
 import AuthRequiredCard from "./overview/AuthRequiredCard";
@@ -18,7 +17,6 @@ import StackDistributionTable from "./overview/StackDistributionTable";
 // Import skeleton components
 import StatsCardSkeleton from "./overview/StatsCardSkeleton";
 import ContributorStatsCardSkeleton from "./overview/ContributorStatsCardSkeleton";
-import HeatMapSkeleton from "./overview/HeatMapSkeleton";
 import StackDistributionSkeleton from "./overview/StackDistributionSkeleton";
 
 export default function DashboardOverview() {
@@ -27,7 +25,7 @@ export default function DashboardOverview() {
   const { loading, dashboardData, loadData } = useDashboardData();
   
   // Use custom hook to calculate stats and chart data
-  const { stats, chartData, isStatsLoading, isChartDataLoading } = useOverviewStats(dashboardData);
+  const { stats, isStatsLoading, isStackDistributionLoading } = useOverviewStats(dashboardData);
   
   if (!user) {
     return (
@@ -84,13 +82,7 @@ export default function DashboardOverview() {
         />
       )}
       
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        {isChartDataLoading ? (
-          <HeatMapSkeleton />
-        ) : (
-          <CommitActivityHeatMap monthlyCommitData={chartData.monthlyCommitData} />
-        )}
-        
+      <div className="grid gap-6 grid-cols-1">
         {isStatsLoading ? (
           <StackDistributionSkeleton />
         ) : (

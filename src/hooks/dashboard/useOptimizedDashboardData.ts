@@ -28,7 +28,6 @@ export interface DashboardStats {
     other: number;
   };
   stackDistribution: Record<string, number>;
-  monthlyActivity: { month: string; commits: number }[];
 }
 
 export default function useOptimizedDashboardData() {
@@ -39,7 +38,6 @@ export default function useOptimizedDashboardData() {
   const [isLoading, setIsLoading] = useState(true);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
   const [isContributorStatsLoading, setIsContributorStatsLoading] = useState(true);
-  const [isChartDataLoading, setIsChartDataLoading] = useState(true);
   const [isStackDistributionLoading, setIsStackDistributionLoading] = useState(true);
   const [isFilterStatsLoading, setIsFilterStatsLoading] = useState(true);
   
@@ -67,8 +65,7 @@ export default function useOptimizedDashboardData() {
       gotJob: 0,
       other: 0
     },
-    stackDistribution: {},
-    monthlyActivity: []
+    stackDistribution: {}
   });
 
   // Fetch dashboard overview data
@@ -79,7 +76,6 @@ export default function useOptimizedDashboardData() {
       // Set all loading states to true
       setIsStatsLoading(true);
       setIsContributorStatsLoading(true);
-      setIsChartDataLoading(true);
       setIsStackDistributionLoading(true);
       setIsFilterStatsLoading(true);
       
@@ -90,7 +86,6 @@ export default function useOptimizedDashboardData() {
       // Update loading states as data comes in
       setIsStatsLoading(false);
       setIsContributorStatsLoading(false);
-      setIsChartDataLoading(false);
       setIsStackDistributionLoading(false);
       setIsFilterStatsLoading(false);
     } catch (error) {
@@ -104,7 +99,6 @@ export default function useOptimizedDashboardData() {
       // Even on error, mark loading as complete
       setIsStatsLoading(false);
       setIsContributorStatsLoading(false);
-      setIsChartDataLoading(false);
       setIsStackDistributionLoading(false);
       setIsFilterStatsLoading(false);
     }
@@ -155,7 +149,6 @@ export default function useOptimizedDashboardData() {
     isLoading,
     isStatsLoading,
     isContributorStatsLoading,
-    isChartDataLoading,
     isStackDistributionLoading,
     isFilterStatsLoading,
     

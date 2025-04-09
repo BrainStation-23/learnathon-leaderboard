@@ -7,7 +7,6 @@ import useOptimizedDashboardData from "@/hooks/dashboard/useOptimizedDashboardDa
 
 // Import components
 import StatsCards from "./overview/StatsCards";
-import CommitActivityHeatMap from "./overview/CommitActivityHeatMap";
 import DashboardHeader from "./overview/DashboardHeader";
 import LoadingState from "./overview/LoadingState";
 import AuthRequiredCard from "./overview/AuthRequiredCard";
@@ -18,7 +17,6 @@ import FilterStatsCard from "./overview/FilterStatsCard";
 // Import skeleton components
 import StatsCardSkeleton from "./overview/StatsCardSkeleton";
 import ContributorStatsCardSkeleton from "./overview/ContributorStatsCardSkeleton";
-import HeatMapSkeleton from "./overview/HeatMapSkeleton";
 import StackDistributionSkeleton from "./overview/StackDistributionSkeleton";
 
 export default function OptimizedDashboardOverview() {
@@ -30,7 +28,6 @@ export default function OptimizedDashboardOverview() {
     dashboardStats,
     isStatsLoading,
     isContributorStatsLoading,
-    isChartDataLoading,
     isStackDistributionLoading,
     refreshDashboard 
   } = useOptimizedDashboardData();
@@ -59,7 +56,6 @@ export default function OptimizedDashboardOverview() {
   if (
     isStatsLoading && 
     isContributorStatsLoading && 
-    isChartDataLoading && 
     isStackDistributionLoading
   ) {
     return <LoadingState />;
@@ -109,14 +105,7 @@ export default function OptimizedDashboardOverview() {
         />
       )}
       
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        {/* Heat Map */}
-        {isChartDataLoading ? (
-          <HeatMapSkeleton />
-        ) : (
-          <CommitActivityHeatMap monthlyCommitData={dashboardStats.monthlyActivity} />
-        )}
-        
+      <div className="grid gap-6 grid-cols-1">
         {/* Stack Distribution */}
         {isStackDistributionLoading ? (
           <StackDistributionSkeleton />

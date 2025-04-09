@@ -40,7 +40,7 @@ export async function getContributorStats(repos: TeamDashboardData[]): Promise<C
       configError ? [] : configData?.filtered_contributors || []
     );
     
-    // Get the current date and calculate one month ago
+    // Get the current date and calculate one month ago for activity check
     const now = new Date();
     const oneMonthAgo = subMonths(now, 1);
     
@@ -49,12 +49,33 @@ export async function getContributorStats(repos: TeamDashboardData[]): Promise<C
     
     // Process each repository
     for (const repo of repos) {
-      // Filter out any contributors in the filtered list
-      const activeContributors = (repo.repoData.contributors || [])
-        .filter(contributor => !filteredLogins.has(contributor.login.toLowerCase()));
+      // Check if this repository has no recent activity
+      const lastCommitDate = repo.repoData.last_commit_date 
+        ? parseISO(repo.repoData.last_commit_date)
+        : null;
+        
+      if (!lastCommitDate || isBefore(lastCommitDate, oneMonthAgo)) {
+        stats.reposWithNoRecentActivity++;
+      }
+      
+      // Filter contributors who:
+      // 1. Are not in the filtered list
+      // 2. Have activity in the last 30 days (we'll use the repository's last commit date as a proxy)
+      const recentActiveContributors = (repo.repoData.contributors || [])
+        .filter(contributor => {
+          // Check if contributor is not in filtered list
+          const notFiltered = !filteredLogins.has(contributor.login.toLowerCase());
+          
+          // For this specific repository, consider contributor active if:
+          // - The repository has activity in the last 30 days
+          // - The contributor has made contributions to this repository
+          const isRecentlyActive = lastCommitDate && isAfter(lastCommitDate, oneMonthAgo);
+          
+          return notFiltered && isRecentlyActive;
+        });
       
       // Count repositories by active contributor count
-      const activeCount = activeContributors.length;
+      const activeCount = recentActiveContributors.length;
       
       if (activeCount === 1) {
         stats.reposWithOneActiveContributor++;
@@ -65,18 +86,9 @@ export async function getContributorStats(repos: TeamDashboardData[]): Promise<C
       }
       
       // Add active contributors to the overall set
-      activeContributors.forEach(contributor => {
+      recentActiveContributors.forEach(contributor => {
         allActiveContributors.add(contributor.login);
       });
-      
-      // Check if this repository has no recent activity
-      const lastCommitDate = repo.repoData.last_commit_date 
-        ? parseISO(repo.repoData.last_commit_date)
-        : null;
-        
-      if (!lastCommitDate || isBefore(lastCommitDate, oneMonthAgo)) {
-        stats.reposWithNoRecentActivity++;
-      }
       
       // Fetch tech stacks for this repository
       await fetchAndCountTechStacks(repo.repoData.id, stats);
