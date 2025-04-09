@@ -54,6 +54,22 @@ export function RepositoryContributors({ contributors, totalCommits }: Repositor
   // Generate unique colors for each contributor
   const colors = ["#4f46e5", "#7c3aed", "#db2777", "#ef4444", "#f97316", "#f59e0b"];
 
+  // Custom tooltip formatter to display contributor name and percentage
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const contributorName = payload[0].dataKey;
+      const percentage = payload[0].value.toFixed(1);
+
+      return (
+        <div className="bg-background border p-2 rounded-md shadow-md text-xs">
+          <p className="font-medium mb-1">{contributorName}</p>
+          <p className="text-muted-foreground">{percentage}% of contributions</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-3">
       <div className="text-sm font-medium">Contributors</div>
@@ -87,11 +103,7 @@ export function RepositoryContributors({ contributors, totalCommits }: Repositor
           >
             <XAxis hide type="number" />
             <YAxis hide type="category" dataKey="name" />
-            <Tooltip 
-              formatter={(value: number) => [`${value.toFixed(1)}%`, ""]}
-              labelFormatter={() => "Contribution Percentage"}
-              contentStyle={{ fontSize: "12px" }}
-            />
+            <Tooltip content={<CustomTooltip />} />
             {topContributors.map((contributor, index) => (
               <Bar
                 key={contributor.login}

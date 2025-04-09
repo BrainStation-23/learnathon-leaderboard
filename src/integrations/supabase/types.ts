@@ -484,13 +484,6 @@ export type Database = {
           totalcontributors: number
         }[]
       }
-      get_stack_distribution: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          name: string
-          count: number
-        }[]
-      }
       log_audit_event: {
         Args: {
           p_user_id: string
