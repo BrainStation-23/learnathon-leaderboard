@@ -123,7 +123,11 @@ export default function OptimizedDashboardOverview() {
         {isStackDistributionLoading ? (
           <StackDistributionSkeleton />
         ) : (
-          <StackDistributionTable distribution={dashboardStats.stackDistribution} />
+          <StackDistributionTable 
+            distribution={dashboardStats.stackDistribution}
+            droppedOutByStack={dashboardStats.droppedOutByStack}
+            inactiveByStack={dashboardStats.inactiveByStack}
+          />
         )}
       </div>
     </div>

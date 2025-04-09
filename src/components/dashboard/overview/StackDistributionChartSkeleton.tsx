@@ -19,12 +19,26 @@ export default function StackDistributionChartSkeleton() {
                 key={`bar-${i}`} 
                 className="h-full flex-1 flex flex-col justify-end"
               >
-                <Skeleton 
-                  className="w-full" 
-                  style={{ 
-                    height: `${Math.max(15, Math.random() * 80)}%`,
-                  }} 
-                />
+                <div className="w-full flex flex-col">
+                  <Skeleton 
+                    className="w-full mb-0.5" 
+                    style={{ 
+                      height: `${Math.max(5, Math.random() * 20)}%`,
+                    }} 
+                  />
+                  <Skeleton 
+                    className="w-full mb-0.5" 
+                    style={{ 
+                      height: `${Math.max(5, Math.random() * 15)}%`,
+                    }} 
+                  />
+                  <Skeleton 
+                    className="w-full" 
+                    style={{ 
+                      height: `${Math.max(15, Math.random() * 50)}%`,
+                    }} 
+                  />
+                </div>
               </div>
             ))}
           </div>

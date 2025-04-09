@@ -13,7 +13,7 @@ export async function fetchDashboardOverview() {
       contributorDistribution,
       activityData,
       filterStats,
-      stackDistribution
+      stackDistributionData
     ] = await Promise.all([
       fetchRepositoryStats(),
       fetchContributorDistribution(),
@@ -27,7 +27,7 @@ export async function fetchDashboardOverview() {
       contributorDistribution,
       activityData,
       filterStats,
-      stackDistribution
+      ...stackDistributionData
     };
   } catch (error) {
     logger.error("Error fetching optimized dashboard data", { error });
@@ -195,23 +195,24 @@ interface DetailedStackDistributionItem {
   inactive_count: number;
 }
 
-// Tech stack distribution
+// Tech stack distribution with detailed metrics
 async function fetchDetailedStackDistribution() {
   try {
     const { data, error } = await supabase
-      .rpc('get_detailed_stack_distribution');
+      .from('get_detailed_stack_distribution')
+      .select('*');
     
     if (error) {
       logger.error("Error fetching detailed stack distribution", { error });
       return {
-        distribution: {},
+        stackDistribution: {},
         droppedOutByStack: {},
         inactiveByStack: {}
       };
     }
     
     // Format the data into the expected structure
-    const distribution: Record<string, number> = {};
+    const stackDistribution: Record<string, number> = {};
     const droppedOutByStack: Record<string, number> = {};
     const inactiveByStack: Record<string, number> = {};
     
@@ -219,7 +220,7 @@ async function fetchDetailedStackDistribution() {
       const typedData = data as unknown as DetailedStackDistributionItem[];
       typedData.forEach(item => {
         if (item.name) {
-          distribution[item.name] = Number(item.total_count) || 0;
+          stackDistribution[item.name] = Number(item.total_count) || 0;
           droppedOutByStack[item.name] = Number(item.dropped_out_count) || 0;
           inactiveByStack[item.name] = Number(item.inactive_count) || 0;
         }
@@ -227,14 +228,14 @@ async function fetchDetailedStackDistribution() {
     }
     
     return {
-      distribution,
+      stackDistribution,
       droppedOutByStack,
       inactiveByStack
     };
   } catch (error) {
     logger.error("Error in fetchDetailedStackDistribution", { error });
     return {
-      distribution: {},
+      stackDistribution: {},
       droppedOutByStack: {},
       inactiveByStack: {}
     };
