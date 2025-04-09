@@ -3,7 +3,7 @@ import { GitHubApiOptions } from "./types";
 import { logger } from "../logService";
 
 export async function fetchGitHubApi<T>(url: string, options: GitHubApiOptions): Promise<T> {
-  const response = await fetch(url, options);
+  const response = await fetch(url, options as RequestInit);
   
   if (!response.ok) {
     // Log the error with status code
@@ -31,4 +31,3 @@ export function createGitHubApiOptions(token: string, acceptHeader: string = "ap
     },
   };
 }
-

@@ -30,9 +30,8 @@ export async function fetchRepoDetails(
           const commitsUrl = `https://api.github.com/repos/${org}/${repo.name}/commits?per_page=1`;
           
           try {
-            const commitsResponse = await fetch(commitsUrl, {
-              headers: options.headers,
-            });
+            // Cast the options to RequestInit for fetch API compatibility
+            const commitsResponse = await fetch(commitsUrl, options as RequestInit);
             
             if (commitsResponse.ok) {
               // Get total count from header
@@ -70,4 +69,3 @@ export async function fetchRepoDetails(
     throw error;
   }
 }
-

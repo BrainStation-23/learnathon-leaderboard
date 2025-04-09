@@ -1,9 +1,11 @@
 
 import { GitHubRepoData, GitHubContributor, GitHubSecurityIssue } from "@/types";
 
+// Update this interface to include an index signature
 export interface GitHubApiHeaders {
   Authorization: string;
   Accept: string;
+  [key: string]: string; // Add index signature to make it compatible with HeadersInit
 }
 
 export interface GitHubApiOptions {
@@ -50,4 +52,3 @@ export interface GitHubCodeQLAlert {
   html_url: string;
   created_at: string;
 }
-
