@@ -33,23 +33,21 @@ const RepositoryPublicDetails = () => {
             name: foundRepo.repositoryName,
             full_name: foundRepo.repositoryName,
             html_url: foundRepo.githubUrl || "",
-            description: foundRepo.description || "",
+            description: "",  // Default empty string since it doesn't exist in LeaderboardItem
             updated_at: foundRepo.lastUpdated,
             last_commit_date: foundRepo.lastUpdated,
-            license: foundRepo.license 
-              ? { name: foundRepo.license, url: "", spdx_id: "" } 
-              : undefined,
+            license: undefined,  // Default undefined since it doesn't exist in LeaderboardItem
             contributors_count: foundRepo.contributors?.length || 0,
             commits_count: foundRepo.commitsCount || 0,
             contributors: foundRepo.contributors?.map(c => ({
-              id: parseInt(c.id),
+              id: c.id,
               login: c.login,
-              avatar_url: c.avatarUrl,
+              avatar_url: c.avatar_url,
               contributions: c.contributions
             })) || []
           },
-          sonarData: foundRepo.sonarMetrics ? {
-            project_key: foundRepo.sonarProjectKey || "",
+          sonarData: {
+            project_key: "",  // Default empty string since sonarProjectKey doesn't exist in LeaderboardItem
             name: foundRepo.repositoryName,
             metrics: {
               lines_of_code: foundRepo.linesOfCode,
@@ -60,15 +58,8 @@ const RepositoryPublicDetails = () => {
               technical_debt: foundRepo.technicalDebt || "0",
               complexity: foundRepo.complexity || 0
             }
-          } : undefined,
-          securityIssues: foundRepo.securityIssues?.map(issue => ({
-            id: parseInt(issue.id),
-            title: issue.title,
-            state: issue.state,
-            html_url: issue.url || "",
-            published_at: issue.createdAt,
-            severity: issue.severity
-          })) || []
+          },
+          securityIssues: []  // Default empty array since securityIssues doesn't exist in LeaderboardItem
         };
 
         setRepository(repoData);
