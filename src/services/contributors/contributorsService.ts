@@ -21,7 +21,7 @@ interface ContributorRepoData {
   contributions: number;
 }
 
-// Define a type for the RPC function to extend the types in the Supabase client
+// Define a type for the RPC function parameters
 type GetContributorsWithReposParams = {
   p_page?: number;
   p_page_size?: number;
@@ -45,11 +45,11 @@ export async function fetchIndividualContributors(
     
     // Get contributors with repositories using our custom SQL function
     const { data: contributorsData, error } = await supabase
-      .rpc<ContributorRepoData, GetContributorsWithReposParams>('get_contributors_with_repos', {
+      .rpc('get_contributors_with_repos', {
         p_page: page,
         p_page_size: pageSize,
         p_filtered_logins: filteredContributors
-      });
+      }) as { data: ContributorRepoData[] | null, error: Error | null };
       
     if (error) {
       logger.error("Error fetching individual contributors:", { error });
