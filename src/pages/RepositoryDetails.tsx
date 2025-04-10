@@ -16,7 +16,18 @@ import {
   AlertTriangle,
   FileCode,
   Bug,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  BadgeCheck,
+  Gauge,
+  LineChart,
+  FileWarning,
+  GitCompareArrows,
+  BarChart3,
+  FileCode2,
+  ShieldCheck,
+  ShieldX,
+  FileWarning2
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import useRepositoryData from "@/hooks/repository/useRepositoryData";
@@ -43,6 +54,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatDistanceToNow, format } from "date-fns";
+import { fetchFilteredContributors } from "@/services/leaderboard/filterSettingsService";
 
 const RepositoryDetails = () => {
   const params = useParams();
@@ -52,6 +64,17 @@ const RepositoryDetails = () => {
   const { dashboardData } = useRepositoryData();
   const [selectedRepo, setSelectedRepo] = useState<TeamDashboardData | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [filteredContributorsList, setFilteredContributorsList] = useState<string[]>([]);
+  
+  // Fetch filtered contributors
+  useEffect(() => {
+    const getFilteredContributors = async () => {
+      const filteredList = await fetchFilteredContributors();
+      setFilteredContributorsList(filteredList);
+    };
+    
+    getFilteredContributors();
+  }, []);
 
   useEffect(() => {
     if (repoId && dashboardData.length > 0) {
@@ -78,6 +101,15 @@ const RepositoryDetails = () => {
   const formatTimeAgo = (dateString?: string) => {
     if (!dateString) return "No data";
     return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+  };
+  
+  // Filter contributors based on the filtered contributors list
+  const getFilteredContributors = (contributors?: GitHubContributor[]) => {
+    if (!contributors) return [];
+    
+    return contributors.filter(
+      contributor => !filteredContributorsList.includes(contributor.login)
+    );
   };
   
   // Prepare SonarCloud metrics data for charts
@@ -149,6 +181,7 @@ const RepositoryDetails = () => {
 
   const metricsData = prepareMetricsData();
   const securityData = prepareSecurityData();
+  const filteredContributors = getFilteredContributors(selectedRepo.repoData.contributors);
   
   return (
     <DashboardLayout>
@@ -225,7 +258,7 @@ const RepositoryDetails = () => {
               <Users size={20} className="text-purple-600" />
             </div>
             <p className="text-muted-foreground text-sm">Contributors</p>
-            <p className="font-medium">{selectedRepo.repoData.contributors_count || "N/A"}</p>
+            <p className="font-medium">{filteredContributors.length || "N/A"}</p>
           </CardContent>
         </Card>
         
@@ -309,21 +342,21 @@ const RepositoryDetails = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {selectedRepo.repoData.contributors && selectedRepo.repoData.contributors.length > 0 ? (
+                {filteredContributors && filteredContributors.length > 0 ? (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center mb-2">
                       <ContributorsDisplay 
-                        contributors={selectedRepo.repoData.contributors} 
+                        contributors={filteredContributors} 
                         maxToShow={5} 
                       />
                       <span className="text-sm text-muted-foreground">
-                        {selectedRepo.repoData.contributors.length} contributors
+                        {filteredContributors.length} contributors
                       </span>
                     </div>
                     
                     <ScrollArea className="h-[260px]">
                       <div className="space-y-3">
-                        {selectedRepo.repoData.contributors.slice(0, 8).map((contributor) => (
+                        {filteredContributors.slice(0, 8).map((contributor) => (
                           <div key={contributor.id} className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <img 
@@ -375,12 +408,15 @@ const RepositoryDetails = () => {
                     </CardDescription>
                   </div>
                   <div className="rounded-full bg-blue-100 p-2">
-                    <Shield size={18} className="text-blue-600" />
+                    <BadgeCheck size={18} className="text-blue-600" />
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     <div className="bg-muted/40 p-4 rounded-lg text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <FileCode2 size={20} className="text-blue-500" />
+                      </div>
                       <div className="text-2xl font-bold">
                         {selectedRepo.sonarData.metrics.lines_of_code?.toLocaleString() || "0"}
                       </div>
@@ -388,6 +424,9 @@ const RepositoryDetails = () => {
                     </div>
                     
                     <div className="bg-muted/40 p-4 rounded-lg text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <CheckCircle2 size={20} className="text-green-500" />
+                      </div>
                       <div className="text-2xl font-bold">
                         {`${selectedRepo.sonarData.metrics.coverage?.toFixed(1) || "0"}%`}
                       </div>
@@ -395,6 +434,9 @@ const RepositoryDetails = () => {
                     </div>
                     
                     <div className="bg-muted/40 p-4 rounded-lg text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <Bug size={20} className="text-orange-500" />
+                      </div>
                       <div className="text-2xl font-bold">
                         {selectedRepo.sonarData.metrics.bugs?.toString() || "0"}
                       </div>
@@ -402,6 +444,9 @@ const RepositoryDetails = () => {
                     </div>
                     
                     <div className="bg-muted/40 p-4 rounded-lg text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <ShieldX size={20} className="text-red-500" />
+                      </div>
                       <div className="text-2xl font-bold">
                         {selectedRepo.sonarData.metrics.vulnerabilities?.toString() || "0"}
                       </div>
@@ -409,6 +454,9 @@ const RepositoryDetails = () => {
                     </div>
                     
                     <div className="bg-muted/40 p-4 rounded-lg text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <FileWarning size={20} className="text-yellow-500" />
+                      </div>
                       <div className="text-2xl font-bold">
                         {selectedRepo.sonarData.metrics.code_smells?.toString() || "0"}
                       </div>
@@ -421,7 +469,10 @@ const RepositoryDetails = () => {
               {/* Code Quality Charts */}
               <Card className="md:col-span-2">
                 <CardHeader>
-                  <CardTitle className="text-lg">Code Issues Distribution</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BarChart3 size={18} className="text-purple-500" />
+                    Code Issues Distribution
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="h-[300px]">
                   {metricsData.length > 0 && metricsData.some(item => item.value > 0) ? (
@@ -463,7 +514,10 @@ const RepositoryDetails = () => {
               
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Technical Debt</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <GitCompareArrows size={18} className="text-indigo-500" />
+                    Technical Debt
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center">
                   <div className="h-32 w-32 rounded-full border-8 border-muted flex items-center justify-center mb-4">
@@ -479,7 +533,10 @@ const RepositoryDetails = () => {
                   
                   <div className="mt-6 w-full">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Complexity:</span>
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Gauge size={16} className="text-blue-500" />
+                        Complexity:
+                      </span>
                       <span className="font-medium">{selectedRepo.sonarData.metrics.complexity || "N/A"}</span>
                     </div>
                   </div>
@@ -531,24 +588,29 @@ const RepositoryDetails = () => {
                   </div>
                 ) : (
                   <div className="rounded-full bg-green-100 p-2">
-                    <Shield size={18} className="text-green-600" />
+                    <ShieldCheck size={18} className="text-green-600" />
                   </div>
                 )}
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {['Critical', 'High', 'Medium', 'Low'].map((severity) => {
-                    const count = securityData.find(d => d.name === severity)?.value || 0;
+                  {[
+                    { name: 'Critical', icon: <ShieldX size={24} className="text-red-500" /> },
+                    { name: 'High', icon: <AlertCircle size={24} className="text-orange-500" /> },
+                    { name: 'Medium', icon: <AlertTriangle size={24} className="text-yellow-500" /> },
+                    { name: 'Low', icon: <ShieldCheck size={24} className="text-green-500" /> }
+                  ].map((severity) => {
+                    const count = securityData.find(d => d.name === severity.name)?.value || 0;
                     let bgColor = 'bg-green-50';
                     let textColor = 'text-green-700';
                     
-                    if (severity === 'Critical') {
+                    if (severity.name === 'Critical') {
                       bgColor = count > 0 ? 'bg-red-50' : 'bg-gray-50';
                       textColor = count > 0 ? 'text-red-700' : 'text-gray-500';
-                    } else if (severity === 'High') {
+                    } else if (severity.name === 'High') {
                       bgColor = count > 0 ? 'bg-orange-50' : 'bg-gray-50';
                       textColor = count > 0 ? 'text-orange-700' : 'text-gray-500';
-                    } else if (severity === 'Medium') {
+                    } else if (severity.name === 'Medium') {
                       bgColor = count > 0 ? 'bg-yellow-50' : 'bg-gray-50';
                       textColor = count > 0 ? 'text-yellow-700' : 'text-gray-500';
                     } else {
@@ -557,11 +619,14 @@ const RepositoryDetails = () => {
                     }
                     
                     return (
-                      <div key={severity} className={`p-4 rounded-lg ${bgColor}`}>
-                        <div className="text-2xl font-bold mb-1 flex items-center gap-2">
+                      <div key={severity.name} className={`p-4 rounded-lg ${bgColor}`}>
+                        <div className="flex justify-center mb-2">
+                          {severity.icon}
+                        </div>
+                        <div className="text-2xl font-bold mb-1 flex items-center justify-center">
                           <span className={textColor}>{count}</span>
                         </div>
-                        <p className={`text-sm ${textColor}`}>{severity}</p>
+                        <p className={`text-sm ${textColor} text-center`}>{severity.name}</p>
                       </div>
                     );
                   })}
@@ -572,7 +637,10 @@ const RepositoryDetails = () => {
             {/* Security Distribution */}
             <Card className="md:col-span-1">
               <CardHeader>
-                <CardTitle className="text-lg">Severity Distribution</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LineChart size={18} className="text-blue-500" />
+                  Severity Distribution
+                </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
                 {securityData.length > 0 && securityData.some(item => item.value > 0) ? (
@@ -620,7 +688,10 @@ const RepositoryDetails = () => {
             {/* Security Issues List */}
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle className="text-lg">Security Issues</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileWarning2 size={18} className="text-red-500" />
+                  Security Issues
+                </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px] overflow-auto">
                 {selectedRepo.securityIssues && selectedRepo.securityIssues.length > 0 ? (
@@ -672,7 +743,7 @@ const RepositoryDetails = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <Shield size={40} className="text-green-500 mb-2" />
+                    <ShieldCheck size={40} className="text-green-500 mb-2" />
                     <p className="text-green-600 font-medium mb-2">No security issues found</p>
                     <p className="text-muted-foreground text-sm">
                       This repository has no detected security vulnerabilities.
