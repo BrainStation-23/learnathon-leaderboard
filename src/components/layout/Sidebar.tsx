@@ -5,7 +5,8 @@ import {
   Home, 
   Settings, 
   Code,
-  LogOut
+  LogOut,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -24,6 +25,11 @@ export default function Sidebar() {
       name: "Repositories",
       path: "/repositories",
       icon: Code,
+    },
+    {
+      name: "Contributors",
+      path: "/individualContributors",
+      icon: Users,
     },
     {
       name: "Settings",

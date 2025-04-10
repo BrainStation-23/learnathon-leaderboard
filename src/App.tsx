@@ -8,7 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ConfigProvider } from "@/context/ConfigContext";
 
 import Leaderboard from "./pages/Leaderboard";
-import HallOfFame from "./pages/HallOfFame"; // Add import for new page
+import HallOfFame from "./pages/HallOfFame";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Repositories from "./pages/Repositories";
@@ -20,6 +20,7 @@ import TechStacksConfig from "./pages/settings/TechStacksConfig";
 import RepoFilterConfig from "./pages/settings/RepoFilterConfig";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import IndividualContributors from "./pages/IndividualContributors"; // Add import for new page
 
 // Create a client outside of the component
 const queryClient = new QueryClient({
@@ -43,7 +44,8 @@ function App() {
             <ConfigProvider>
               <Routes>
                 <Route path="/" element={<Leaderboard />} />
-                <Route path="/hall-of-fame" element={<HallOfFame />} /> {/* Add new route */}
+                <Route path="/hall-of-fame" element={<HallOfFame />} />
+                <Route path="/individualContributors" element={<IndividualContributors />} /> {/* Add new route */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/repositories" element={<Repositories />} />
