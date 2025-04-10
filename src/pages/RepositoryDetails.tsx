@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { TeamDashboardData, GitHubContributor } from "@/types";
@@ -26,8 +25,7 @@ import {
   BarChart3,
   FileCode2,
   ShieldCheck,
-  ShieldX,
-  FileWarning2
+  ShieldX
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import useRepositoryData from "@/hooks/repository/useRepositoryData";
@@ -66,7 +64,6 @@ const RepositoryDetails = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [filteredContributorsList, setFilteredContributorsList] = useState<string[]>([]);
   
-  // Fetch filtered contributors
   useEffect(() => {
     const getFilteredContributors = async () => {
       const filteredList = await fetchFilteredContributors();
@@ -92,7 +89,6 @@ const RepositoryDetails = () => {
     }
   }, [repoId, dashboardData, navigate, toast]);
   
-  // Format date for display
   const formatDate = (dateString?: string) => {
     if (!dateString) return "No data";
     return format(new Date(dateString), "PPP");
@@ -103,7 +99,6 @@ const RepositoryDetails = () => {
     return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
   
-  // Filter contributors based on the filtered contributors list
   const getFilteredContributors = (contributors?: GitHubContributor[]) => {
     if (!contributors) return [];
     
@@ -112,7 +107,6 @@ const RepositoryDetails = () => {
     );
   };
   
-  // Prepare SonarCloud metrics data for charts
   const prepareMetricsData = () => {
     if (!selectedRepo?.sonarData?.metrics) return [];
     
@@ -125,7 +119,6 @@ const RepositoryDetails = () => {
     ];
   };
   
-  // Prepare security issues data for charts
   const prepareSecurityData = () => {
     if (!selectedRepo?.securityIssues || selectedRepo.securityIssues.length === 0) return [];
     
@@ -185,7 +178,6 @@ const RepositoryDetails = () => {
   
   return (
     <DashboardLayout>
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
         <div className="flex items-center gap-2">
           <Button 
@@ -220,7 +212,6 @@ const RepositoryDetails = () => {
         </div>
       </div>
       
-      {/* Description */}
       <Card className="mb-6 bg-muted/30 border-0 shadow-sm">
         <CardContent className="p-4">
           <p className="text-muted-foreground">
@@ -229,7 +220,6 @@ const RepositoryDetails = () => {
         </CardContent>
       </Card>
       
-      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
@@ -273,7 +263,6 @@ const RepositoryDetails = () => {
         </Card>
       </div>
       
-      {/* Tabs Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-3 mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -281,9 +270,7 @@ const RepositoryDetails = () => {
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
         
-        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Repository Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -328,7 +315,6 @@ const RepositoryDetails = () => {
               </CardContent>
             </Card>
             
-            {/* Contributors Section */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -395,7 +381,6 @@ const RepositoryDetails = () => {
           </div>
         </TabsContent>
         
-        {/* Code Quality Tab */}
         <TabsContent value="code-quality" className="space-y-6">
           {selectedRepo.sonarData ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -466,7 +451,6 @@ const RepositoryDetails = () => {
                 </CardContent>
               </Card>
               
-              {/* Code Quality Charts */}
               <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -570,10 +554,8 @@ const RepositoryDetails = () => {
           )}
         </TabsContent>
         
-        {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Security Summary */}
             <Card className="md:col-span-3">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -634,7 +616,6 @@ const RepositoryDetails = () => {
               </CardContent>
             </Card>
             
-            {/* Security Distribution */}
             <Card className="md:col-span-1">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -685,11 +666,10 @@ const RepositoryDetails = () => {
               </CardContent>
             </Card>
             
-            {/* Security Issues List */}
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <FileWarning2 size={18} className="text-red-500" />
+                  <FileWarning size={18} className="text-red-500" />
                   Security Issues
                 </CardTitle>
               </CardHeader>
