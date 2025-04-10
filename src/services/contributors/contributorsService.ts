@@ -13,6 +13,14 @@ export interface IndividualContributor {
   }[];
 }
 
+interface ContributorRepoData {
+  login: string;
+  avatar_url: string | null;
+  repository_id: string;
+  repository_name: string;
+  contributions: number;
+}
+
 export async function fetchIndividualContributors(
   page: number = 1, 
   pageSize: number = 20
@@ -28,13 +36,13 @@ export async function fetchIndividualContributors(
     
     const filteredContributors = configData?.filtered_contributors || [];
     
-    // Get unique contributors grouped by their login
+    // Get contributors with repositories using our custom SQL function
     const { data: contributorsData, error } = await supabase
-      .rpc('get_contributors_with_repos', { 
-        p_page: page, 
-        p_page_size: pageSize,
-        p_filtered_logins: filteredContributors
-      });
+      .from('get_contributors_with_repos')
+      .select('*')
+      .eq('p_page', page)
+      .eq('p_page_size', pageSize)
+      .eq('p_filtered_logins', filteredContributors);
       
     if (error) {
       logger.error("Error fetching individual contributors:", { error });
@@ -44,28 +52,30 @@ export async function fetchIndividualContributors(
     // Transform the data to the format we need
     const groupedContributors: Record<string, IndividualContributor> = {};
     
-    contributorsData.forEach((item: any) => {
-      if (!groupedContributors[item.login]) {
-        groupedContributors[item.login] = {
-          login: item.login,
-          avatar_url: item.avatar_url || '', 
-          total_contributions: 0,
-          repositories: []
-        };
-      }
-      
-      // Add repository to the contributor's list
-      if (item.repository_id) {
-        groupedContributors[item.login].repositories.push({
-          id: item.repository_id,
-          name: item.repository_name,
-          contributions: item.contributions
-        });
+    if (Array.isArray(contributorsData)) {
+      contributorsData.forEach((item: ContributorRepoData) => {
+        if (!groupedContributors[item.login]) {
+          groupedContributors[item.login] = {
+            login: item.login,
+            avatar_url: item.avatar_url || '', 
+            total_contributions: 0,
+            repositories: []
+          };
+        }
         
-        // Add to total contributions
-        groupedContributors[item.login].total_contributions += item.contributions;
-      }
-    });
+        // Add repository to the contributor's list
+        if (item.repository_id) {
+          groupedContributors[item.login].repositories.push({
+            id: item.repository_id,
+            name: item.repository_name,
+            contributions: item.contributions
+          });
+          
+          // Add to total contributions
+          groupedContributors[item.login].total_contributions += item.contributions;
+        }
+      });
+    }
     
     // Convert to array and sort by total contributions
     const contributors = Object.values(groupedContributors)
