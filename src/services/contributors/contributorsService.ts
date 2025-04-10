@@ -21,13 +21,6 @@ interface ContributorRepoData {
   contributions: number;
 }
 
-// Define a type for the RPC function parameters
-type GetContributorsWithReposParams = {
-  p_page?: number;
-  p_page_size?: number;
-  p_filtered_logins?: string[];
-};
-
 export async function fetchIndividualContributors(
   page: number = 1, 
   pageSize: number = 20
