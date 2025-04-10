@@ -7,10 +7,8 @@ import { RepositoryContributors } from "./RepositoryContributors";
 import { LinesOfCodeIndicator } from "./LinesOfCodeIndicator";
 import { Separator } from "@/components/ui/separator";
 import { MetricsRadarChart } from "./MetricsRadarChart";
-import { Radar, Code2, ChevronRight } from "lucide-react";
+import { Radar, Code2 } from "lucide-react";
 import { TechStackIcons } from "./TechStackIcons";
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 
 interface RepositoryScoreCardProps {
   item: LeaderboardItem;
@@ -86,16 +84,8 @@ export function RepositoryScoreCard({ item, rank }: RepositoryScoreCardProps) {
         {/* Radar Chart */}
         <MetricsRadarChart item={item} />
         
-        <div className="flex items-center justify-between pt-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/repository/${item.repositoryId}`} className="flex items-center">
-              More Details
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Link>
-          </Button>
-          <div className="text-xs text-muted-foreground">
-            Last updated: {formatDistanceToNow(lastUpdatedDate, { addSuffix: true })}
-          </div>
+        <div className="text-xs text-muted-foreground text-right pt-2">
+          Last updated: {formatDistanceToNow(lastUpdatedDate, { addSuffix: true })}
         </div>
       </CardContent>
     </Card>

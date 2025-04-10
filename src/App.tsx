@@ -8,12 +8,11 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ConfigProvider } from "@/context/ConfigContext";
 
 import Leaderboard from "./pages/Leaderboard";
-import HallOfFame from "./pages/HallOfFame";
+import HallOfFame from "./pages/HallOfFame"; // Add import for new page
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Repositories from "./pages/Repositories";
 import RepositoryDetails from "./pages/RepositoryDetails";
-import RepositoryPublicDetails from "./pages/RepositoryPublicDetails";
 import Settings from "./pages/Settings";
 import DashboardConfig from "./pages/settings/DashboardConfig";
 import LeaderboardConfig from "./pages/settings/LeaderboardConfig";
@@ -44,8 +43,7 @@ function App() {
             <ConfigProvider>
               <Routes>
                 <Route path="/" element={<Leaderboard />} />
-                <Route path="/hall-of-fame" element={<HallOfFame />} />
-                <Route path="/repository/:repoId" element={<RepositoryPublicDetails />} />
+                <Route path="/hall-of-fame" element={<HallOfFame />} /> {/* Add new route */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/repositories" element={<Repositories />} />
