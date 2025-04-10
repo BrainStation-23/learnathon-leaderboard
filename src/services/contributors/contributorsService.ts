@@ -45,7 +45,7 @@ export async function fetchIndividualContributors(
     
     // Get contributors with repositories using our custom SQL function
     const { data: contributorsData, error } = await supabase
-      .rpc<ContributorRepoData>('get_contributors_with_repos', {
+      .rpc<ContributorRepoData, GetContributorsWithReposParams>('get_contributors_with_repos', {
         p_page: page,
         p_page_size: pageSize,
         p_filtered_logins: filteredContributors
@@ -60,7 +60,7 @@ export async function fetchIndividualContributors(
     const groupedContributors: Record<string, IndividualContributor> = {};
     
     if (Array.isArray(contributorsData)) {
-      contributorsData.forEach((item: ContributorRepoData) => {
+      contributorsData.forEach((item) => {
         if (!groupedContributors[item.login]) {
           groupedContributors[item.login] = {
             login: item.login,
