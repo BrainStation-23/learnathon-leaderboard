@@ -423,6 +423,20 @@ export type Database = {
           reposwithnorecentactivity: number
         }[]
       }
+      get_contributors_with_repos: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+          p_filtered_logins?: string[]
+        }
+        Returns: {
+          login: string
+          avatar_url: string
+          repository_id: string
+          repository_name: string
+          contributions: number
+        }[]
+      }
       get_detailed_stack_distribution: {
         Args: Record<PropertyKey, never>
         Returns: {

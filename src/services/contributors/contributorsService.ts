@@ -21,6 +21,13 @@ interface ContributorRepoData {
   contributions: number;
 }
 
+// Define a type for the RPC function to extend the types in the Supabase client
+type GetContributorsWithReposParams = {
+  p_page?: number;
+  p_page_size?: number;
+  p_filtered_logins?: string[];
+};
+
 export async function fetchIndividualContributors(
   page: number = 1, 
   pageSize: number = 20
@@ -38,7 +45,7 @@ export async function fetchIndividualContributors(
     
     // Get contributors with repositories using our custom SQL function
     const { data: contributorsData, error } = await supabase
-      .rpc('get_contributors_with_repos', {
+      .rpc<ContributorRepoData>('get_contributors_with_repos', {
         p_page: page,
         p_page_size: pageSize,
         p_filtered_logins: filteredContributors
@@ -53,7 +60,7 @@ export async function fetchIndividualContributors(
     const groupedContributors: Record<string, IndividualContributor> = {};
     
     if (Array.isArray(contributorsData)) {
-      (contributorsData as ContributorRepoData[]).forEach((item: ContributorRepoData) => {
+      contributorsData.forEach((item: ContributorRepoData) => {
         if (!groupedContributors[item.login]) {
           groupedContributors[item.login] = {
             login: item.login,
