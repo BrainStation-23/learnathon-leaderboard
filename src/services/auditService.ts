@@ -73,46 +73,54 @@ function getPaginationRange(pagination: PaginationParams): { from: number; to: n
 export async function fetchActionTypes(): Promise<string[]> {
   const { data, error } = await supabase
     .from('audit_logs')
-    .select('action')
-    .distinct();
+    .select('action');
   
   if (error) {
     console.error("Error fetching action types:", error);
     throw error;
   }
   
-  return data.map(item => item.action);
+  // Process the data to get unique action types
+  const uniqueActions = new Set<string>();
+  data.forEach(item => uniqueActions.add(item.action));
+  
+  return Array.from(uniqueActions);
 }
 
 // Function to fetch distinct entity types for filter dropdown
 export async function fetchEntityTypes(): Promise<string[]> {
   const { data, error } = await supabase
     .from('audit_logs')
-    .select('entity_type')
-    .distinct();
+    .select('entity_type');
   
   if (error) {
     console.error("Error fetching entity types:", error);
     throw error;
   }
   
-  return data.map(item => item.entity_type);
+  // Process the data to get unique entity types
+  const uniqueEntityTypes = new Set<string>();
+  data.forEach(item => uniqueEntityTypes.add(item.entity_type));
+  
+  return Array.from(uniqueEntityTypes);
 }
 
 // Function to fetch user information by ID
 export async function fetchUserById(userId: string): Promise<{ email: string } | null> {
   if (!userId) return null;
   
-  const { data, error } = await supabase
-    .from('auth.users') // This might not work directly due to RLS
-    .select('email')
-    .eq('id', userId)
-    .single();
-    
-  if (error) {
-    console.warn("Could not fetch user info:", error);
+  // Note: This is a simplified approach that returns a user display name based on ID
+  // In a real app, you would implement a proper user profile system
+  // Direct access to auth.users table is restricted by RLS
+
+  try {
+    // Since we can't access auth.users directly, just return a formatted user ID
+    // In a real application, you'd have a profiles table that maps user_id to profile info
+    return {
+      email: `User ${userId.substring(0, 8)}`
+    };
+  } catch (err) {
+    console.warn("Could not fetch user info:", err);
     return null;
   }
-  
-  return data;
 }

@@ -64,13 +64,13 @@ export function AuditLogsTable() {
   });
 
   // Fetch action types for filtering
-  const { data: actionTypes } = useQuery({
+  const { data: actionTypes = [] } = useQuery({
     queryKey: ['audit-log-actions'],
     queryFn: fetchActionTypes
   });
 
   // Fetch entity types for filtering
-  const { data: entityTypes } = useQuery({
+  const { data: entityTypes = [] } = useQuery({
     queryKey: ['audit-log-entities'],
     queryFn: fetchEntityTypes
   });
@@ -136,6 +136,12 @@ export function AuditLogsTable() {
     return "U" + userId.substring(0, 2).toUpperCase();
   };
 
+  // Get user display name
+  const getUserDisplayName = (userId: string | null) => {
+    if (!userId) return "System";
+    return `User ${userId.substring(0, 8)}`;
+  };
+
   // Reset all filters
   const resetFilters = () => {
     setFilters({});
@@ -177,8 +183,8 @@ export function AuditLogsTable() {
               <SelectValue placeholder="Action" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Actions</SelectItem>
-              {actionTypes?.map(action => (
+              <SelectItem value="all">All Actions</SelectItem>
+              {actionTypes.map(action => (
                 <SelectItem key={action} value={action}>
                   <div className="flex items-center gap-2">
                     {getActionIcon(action)}
@@ -199,8 +205,8 @@ export function AuditLogsTable() {
               <SelectValue placeholder="Entity Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Entity Types</SelectItem>
-              {entityTypes?.map(type => (
+              <SelectItem value="all">All Entity Types</SelectItem>
+              {entityTypes.map(type => (
                 <SelectItem key={type} value={type}>
                   <div className="flex items-center gap-2">
                     {getEntityIcon(type)}
@@ -271,7 +277,7 @@ export function AuditLogsTable() {
                         </AvatarFallback>
                       </Avatar>
                       <span className="truncate max-w-[120px]">
-                        {log.userId ? log.userId.substring(0, 8) : 'System'}
+                        {getUserDisplayName(log.userId)}
                       </span>
                     </div>
                   </TableCell>
