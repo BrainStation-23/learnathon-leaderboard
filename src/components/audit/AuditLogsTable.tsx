@@ -31,13 +31,14 @@ export function AuditLogsTable() {
     queryFn: fetchEntityTypes
   });
 
-  // Apply search after a delay
+  // Apply search after a short delay for better performance
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm !== filters.search) {
         setFilters(prev => ({ ...prev, search: searchTerm }));
+        setPage(1); // Reset to first page when search changes
       }
-    }, 500);
+    }, 300); // Reduced delay for better responsiveness
 
     return () => clearTimeout(timer);
   }, [searchTerm, filters.search]);
@@ -48,7 +49,7 @@ export function AuditLogsTable() {
     setPage(1); // Reset to first page when filters change
   };
 
-  // Reset all filters
+  // Reset all filters and search
   const resetFilters = () => {
     setFilters({});
     setSearchTerm("");

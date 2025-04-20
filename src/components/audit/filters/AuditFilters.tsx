@@ -31,7 +31,7 @@ export function AuditFilters({
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search audit logs..."
+            placeholder="Search audit logs (ID, action, type, details...)..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
