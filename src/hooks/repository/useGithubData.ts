@@ -1,5 +1,4 @@
 
-import { useConfig } from "@/context/ConfigContext";
 import { fetchRepositoriesForOrg, fetchRepoDetails } from "@/services/github";
 import { saveRepositoryData } from "@/services/repository/repositoryService";
 import { logger } from "@/services/logService";
@@ -9,7 +8,8 @@ export async function fetchAndSaveGithubData(
   config: { github_org: string; github_pat: string },
   userId: string,
   progressCallback: ProgressCallback,
-  addError: (error: string) => void
+  addError: (error: string) => void,
+  repositoryName?: string // Optional parameter for single repository sync
 ) {
   try {
     // 1. Fetch GitHub repositories - 25% of overall progress
@@ -21,12 +21,20 @@ export async function fetchAndSaveGithubData(
         config.github_org,
         config.github_pat
       );
+
+      // Filter by repository name if provided
+      if (repositoryName) {
+        repos = repos.filter(repo => repo.name === repositoryName);
+        if (repos.length === 0) {
+          throw new Error(`Repository ${repositoryName} not found`);
+        }
+      }
+
       progressCallback('github', 25, `Found ${repos.length} repositories`);
       logger.info("GitHub repositories fetched", { count: repos.length }, userId, 'sync');
     } catch (error) {
       logger.error("Failed to fetch repositories from GitHub", { error }, userId, 'sync');
       addError("Failed to fetch repositories from GitHub");
-      // Continue with empty repos
       repos = [];
     }
 
@@ -68,4 +76,3 @@ export async function fetchAndSaveGithubData(
     throw error;
   }
 }
-

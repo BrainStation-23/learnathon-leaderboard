@@ -77,28 +77,32 @@ const RepositoryDetails = () => {
 
   return (
     <DashboardLayout>
-      <RepositoryHeader 
-        repository={selectedRepo.repoData} 
-        sonarData={selectedRepo.sonarData}
-        onBackClick={() => navigate("/repositories")} 
-      />
-      
-      <RepositoryDescription description={selectedRepo.repoData.description} />
-      
-      <RepositoryMetricCards 
-        repository={selectedRepo.repoData}
-        filteredContributors={filteredContributorsList}
-        securityIssues={selectedRepo.securityIssues}
-      />
-      
-      <RepositoryDetailsTabs
-        repository={selectedRepo.repoData}
-        sonarData={selectedRepo.sonarData}
-        securityIssues={selectedRepo.securityIssues}
-        filteredContributorsList={filteredContributorsList}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+      <div className="space-y-6">
+        <RepositoryHeader 
+          repository={selectedRepo.repoData} 
+          sonarData={selectedRepo.sonarData}
+          onBackClick={() => navigate("/repositories")} 
+        />
+        
+        <RepositorySync repository={selectedRepo} />
+        
+        <RepositoryDescription description={selectedRepo.repoData.description} />
+        
+        <RepositoryMetricCards 
+          repository={selectedRepo.repoData}
+          filteredContributors={filteredContributorsList}
+          securityIssues={selectedRepo.securityIssues}
+        />
+        
+        <RepositoryDetailsTabs
+          repository={selectedRepo.repoData}
+          sonarData={selectedRepo.sonarData}
+          securityIssues={selectedRepo.securityIssues}
+          filteredContributorsList={filteredContributorsList}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      </div>
     </DashboardLayout>
   );
 };
