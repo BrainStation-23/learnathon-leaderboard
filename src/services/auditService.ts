@@ -18,35 +18,29 @@ export async function fetchAuditLogs(
   pagination: PaginationParams, 
   filters?: AuditLogFilters
 ): Promise<{ data: AuditLog[], count: number }> {
-  // Start building the query
-  let query = supabase
-    .from('audit_logs')
-    .select('*', { count: 'exact' });
-  
-  // Apply filters if provided
-  if (filters) {
-    if (filters.action) {
-      query = query.eq('action', filters.action);
-    }
-    if (filters.entityType) {
-      query = query.eq('entity_type', filters.entityType);
-    }
-    if (filters.search) {
-      query = query.or(`user_id.ilike.%${filters.search}%,action.ilike.%${filters.search}%,entity_type.ilike.%${filters.search}%`);
-    }
-  }
-
-  // Apply pagination
-  const { from, to } = getPaginationRange(pagination);
-  
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  const { data, error } = await supabase.rpc('get_audit_logs', {
+    p_page: pagination.page,
+    p_page_size: pagination.pageSize,
+    p_action: filters?.action === 'all' ? null : filters?.action,
+    p_entity_type: filters?.entityType === 'all' ? null : filters?.entityType,
+    p_search: filters?.search || null
+  });
 
   if (error) {
     console.error("Error fetching audit logs:", error);
     throw error;
   }
+
+  // If data is empty, return an empty array and 0 count
+  if (!data || data.length === 0) {
+    return { 
+      data: [], 
+      count: 0 
+    };
+  }
+
+  // The total count is the last item's total_count
+  const count = data[0]?.total_count || 0;
 
   return { 
     data: data.map(log => ({
@@ -54,73 +48,45 @@ export async function fetchAuditLogs(
       action: log.action,
       entityType: log.entity_type,
       createdAt: log.created_at,
-      details: log.details as Record<string, any> | null, // Type assertion to ensure compatibility
+      details: log.details as Record<string, any> | null,
       entityId: log.entity_id,
       userId: log.user_id
     })),
-    count: count || 0
+    count 
   };
 }
 
-// Helper function to calculate pagination range
-function getPaginationRange(pagination: PaginationParams): { from: number; to: number } {
-  const from = (pagination.page - 1) * pagination.pageSize;
-  const to = from + pagination.pageSize - 1;
-  return { from, to };
-}
-
-// Function to fetch distinct action types for filter dropdown
+// Function to fetch action types for filtering
 export async function fetchActionTypes(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('audit_logs')
-    .select('action');
+  const { data, error } = await supabase.rpc('get_unique_action_types');
   
   if (error) {
     console.error("Error fetching action types:", error);
     throw error;
   }
   
-  // Process the data to get unique action types
-  const uniqueActions = new Set<string>();
-  data.forEach(item => uniqueActions.add(item.action));
-  
-  return Array.from(uniqueActions);
+  return data.map(item => item.action);
 }
 
-// Function to fetch distinct entity types for filter dropdown
+// Function to fetch entity types for filtering
 export async function fetchEntityTypes(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('audit_logs')
-    .select('entity_type');
+  const { data, error } = await supabase.rpc('get_unique_entity_types');
   
   if (error) {
     console.error("Error fetching entity types:", error);
     throw error;
   }
   
-  // Process the data to get unique entity types
-  const uniqueEntityTypes = new Set<string>();
-  data.forEach(item => uniqueEntityTypes.add(item.entity_type));
-  
-  return Array.from(uniqueEntityTypes);
+  return data.map(item => item.entity_type);
 }
 
 // Function to fetch user information by ID
 export async function fetchUserById(userId: string): Promise<{ email: string } | null> {
   if (!userId) return null;
   
-  // Note: This is a simplified approach that returns a user display name based on ID
-  // In a real app, you would implement a proper user profile system
-  // Direct access to auth.users table is restricted by RLS
-
-  try {
-    // Since we can't access auth.users directly, just return a formatted user ID
-    // In a real application, you'd have a profiles table that maps user_id to profile info
-    return {
-      email: `User ${userId.substring(0, 8)}`
-    };
-  } catch (err) {
-    console.warn("Could not fetch user info:", err);
-    return null;
-  }
+  // Since we can't directly access user information due to RLS
+  // Return a generic user display name
+  return {
+    email: `User ${userId.substring(0, 8)}`
+  };
 }

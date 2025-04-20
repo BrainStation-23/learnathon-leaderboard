@@ -414,6 +414,25 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_audit_logs: {
+        Args: {
+          p_page: number
+          p_page_size: number
+          p_action?: string
+          p_entity_type?: string
+          p_search?: string
+        }
+        Returns: {
+          id: string
+          action: string
+          entity_type: string
+          created_at: string
+          details: Json
+          entity_id: string
+          user_id: string
+          total_count: number
+        }[]
+      }
       get_contributor_distribution: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -500,6 +519,18 @@ export type Database = {
         Returns: {
           totalrepos: number
           totalcontributors: number
+        }[]
+      }
+      get_unique_action_types: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          action: string
+        }[]
+      }
+      get_unique_entity_types: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          entity_type: string
         }[]
       }
       log_audit_event: {
