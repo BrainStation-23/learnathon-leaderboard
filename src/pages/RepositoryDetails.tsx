@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import useRepositoryData from "@/hooks/repository/useRepositoryData";
 import { fetchFilteredContributors } from "@/services/leaderboard/filterSettingsService";
+import { RepositorySync } from "@/components/repository/RepositorySync"; // Import the RepositorySync component
 
 // Import newly created components
 import { RepositoryHeader } from "@/components/repository/RepositoryHeader";
