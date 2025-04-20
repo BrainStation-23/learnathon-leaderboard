@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AuditLog } from "@/types/audit";
+import { Json } from "@/integrations/supabase/types";
 
 export async function fetchAuditLogs(): Promise<AuditLog[]> {
   const { data, error } = await supabase
@@ -18,7 +19,7 @@ export async function fetchAuditLogs(): Promise<AuditLog[]> {
     action: log.action,
     entityType: log.entity_type,
     createdAt: log.created_at,
-    details: log.details,
+    details: log.details as Record<string, any> | null, // Type assertion to ensure compatibility
     entityId: log.entity_id,
     userId: log.user_id
   }));
