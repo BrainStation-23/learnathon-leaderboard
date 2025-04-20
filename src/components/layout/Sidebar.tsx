@@ -6,7 +6,8 @@ import {
   Settings, 
   Code,
   LogOut,
-  Users
+  Users,
+  History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -32,10 +33,14 @@ export default function Sidebar() {
       icon: Users,
     },
     {
+      name: "Audit Logs",
+      path: "/audit-logs",
+      icon: History,
+    },
+    {
       name: "Settings",
       path: "/settings",
       icon: Settings,
-      // If we're on any settings page, this should be active
       isActive: (location: { pathname: string }) => location.pathname.startsWith("/settings")
     },
   ];

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,9 +19,9 @@ import TechStacksConfig from "./pages/settings/TechStacksConfig";
 import RepoFilterConfig from "./pages/settings/RepoFilterConfig";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
-import IndividualContributors from "./pages/IndividualContributors"; // Add import for new page
+import IndividualContributors from "./pages/IndividualContributors";
+import AuditLogs from "./pages/AuditLogs";
 
-// Create a client outside of the component
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -32,7 +31,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Make App a function component
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -45,7 +43,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Leaderboard />} />
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
-                <Route path="/individualContributors" element={<IndividualContributors />} /> {/* Add new route */}
+                <Route path="/individualContributors" element={<IndividualContributors />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/repositories" element={<Repositories />} />
@@ -55,7 +53,7 @@ function App() {
                 <Route path="/settings/leaderboard" element={<LeaderboardConfig />} />
                 <Route path="/settings/tech-stacks" element={<TechStacksConfig />} />
                 <Route path="/settings/repo-filter" element={<RepoFilterConfig />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </ConfigProvider>
