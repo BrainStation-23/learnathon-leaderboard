@@ -30,102 +30,76 @@ export async function saveSonarData(
     let savedCount = 0;
     let skippedCount = 0;
 
-    logger.info("Found repositories in database", { 
-      count: total,
-      repositoryNames: repositories.map(r => r.name)
-    }, userId, 'sonar_metrics');
-
-    // For each repository with sonar data, save it
+    // For each repository with sonar data
     for (const repo of repositories || []) {
       try {
         const sonarInfo = sonarData.get(repo.name);
         
-        if (!sonarInfo) {
-          logger.info(`No SonarCloud data for repository ${repo.name}, skipping`, {}, userId, 'sonar_metrics');
+        if (!sonarInfo || !sonarInfo.metrics || Object.keys(sonarInfo.metrics).length === 0) {
+          logger.info(`No valid SonarCloud data for repository ${repo.name}, skipping`, {
+            hasInfo: !!sonarInfo,
+            hasMetrics: sonarInfo ? !!sonarInfo.metrics : false
+          }, userId, 'sonar_metrics');
           skippedCount++;
           continue;
         }
 
-        // Check if sonar metrics already exist for this repository
+        // Check if metrics already exist
         const { data: existingSonar, error: fetchError } = await supabase
           .from("sonar_metrics")
           .select("id")
           .eq("repository_id", repo.id)
           .single();
         
-        let sonarError;
-        
         if (fetchError && fetchError.code !== 'PGRST116') {
-          logger.error(`Error checking SonarCloud data for ${repo.name}`, { error: fetchError }, userId, 'sonar_metrics');
-        } else if (existingSonar) {
+          logger.error(`Error checking existing SonarCloud data for ${repo.name}`, { error: fetchError }, userId, 'sonar_metrics');
+        }
+
+        const metricsData = {
+          repository_id: repo.id,
+          project_key: sonarInfo.project_key,
+          lines_of_code: sonarInfo.metrics.lines_of_code,
+          coverage: sonarInfo.metrics.coverage,
+          bugs: sonarInfo.metrics.bugs,
+          vulnerabilities: sonarInfo.metrics.vulnerabilities,
+          code_smells: sonarInfo.metrics.code_smells,
+          technical_debt: sonarInfo.metrics.technical_debt,
+          complexity: sonarInfo.metrics.complexity,
+          collected_at: new Date().toISOString()
+        };
+
+        let saveError;
+        if (existingSonar) {
           // Update existing metrics
           logger.info(`Updating existing SonarCloud metrics for ${repo.name}`, {
-            metrics: sonarInfo.metrics,
+            metrics: metricsData,
             id: existingSonar.id
           }, userId, 'sonar_metrics');
 
           const { error } = await supabase
             .from("sonar_metrics")
-            .update({
-              project_key: sonarInfo.project_key,
-              lines_of_code: sonarInfo.metrics.lines_of_code,
-              coverage: sonarInfo.metrics.coverage,
-              bugs: sonarInfo.metrics.bugs,
-              vulnerabilities: sonarInfo.metrics.vulnerabilities,
-              code_smells: sonarInfo.metrics.code_smells,
-              technical_debt: sonarInfo.metrics.technical_debt,
-              complexity: sonarInfo.metrics.complexity,
-              collected_at: new Date().toISOString()
-            })
+            .update(metricsData)
             .eq("id", existingSonar.id);
           
-          sonarError = error;
-
-          if (error) {
-            logger.error(`Error updating SonarCloud data for ${repo.name}`, { error }, userId, 'sonar_metrics');
-          } else {
-            logger.info(`Successfully updated SonarCloud data for ${repo.name}`, {
-              metrics: sonarInfo.metrics
-            }, userId, 'sonar_metrics');
-          }
+          saveError = error;
         } else {
           // Insert new metrics
           logger.info(`Creating new SonarCloud metrics for ${repo.name}`, {
-            metrics: sonarInfo.metrics,
-            repoId: repo.id
+            metrics: metricsData
           }, userId, 'sonar_metrics');
 
           const { error } = await supabase
             .from("sonar_metrics")
-            .insert({
-              repository_id: repo.id,
-              project_key: sonarInfo.project_key,
-              lines_of_code: sonarInfo.metrics.lines_of_code,
-              coverage: sonarInfo.metrics.coverage,
-              bugs: sonarInfo.metrics.bugs,
-              vulnerabilities: sonarInfo.metrics.vulnerabilities,
-              code_smells: sonarInfo.metrics.code_smells,
-              technical_debt: sonarInfo.metrics.technical_debt,
-              complexity: sonarInfo.metrics.complexity,
-              collected_at: new Date().toISOString()
-            });
+            .insert(metricsData);
           
-          sonarError = error;
-
-          if (error) {
-            logger.error(`Error inserting SonarCloud data for ${repo.name}`, { error }, userId, 'sonar_metrics');
-          } else {
-            logger.info(`Successfully inserted SonarCloud data for ${repo.name}`, {
-              metrics: sonarInfo.metrics
-            }, userId, 'sonar_metrics');
-          }
+          saveError = error;
         }
-        
-        if (sonarError) {
-          logger.error(`Error saving SonarCloud data for ${repo.name}`, { error: sonarError }, userId, 'sonar_metrics');
+
+        if (saveError) {
+          logger.error(`Error saving SonarCloud data for ${repo.name}`, { error: saveError }, userId, 'sonar_metrics');
         } else {
           logger.info(`Successfully saved SonarCloud data for ${repo.name}`, {
-            metrics: sonarInfo.metrics
+            metrics: metricsData
           }, userId, 'sonar_metrics', repo.id);
           savedCount++;
         }
@@ -139,7 +113,12 @@ export async function saveSonarData(
       }
     }
 
-    logger.info(`Completed SonarCloud data sync`, { savedCount, skippedCount, total }, userId, 'sonar_metrics');
+    logger.info(`Completed SonarCloud data sync`, { 
+      savedCount, 
+      skippedCount, 
+      total,
+      processedRepos: processed
+    }, userId, 'sonar_metrics');
   } catch (error) {
     logger.error("Error in saveSonarData", { error }, userId, 'sonar_metrics');
     throw error;
