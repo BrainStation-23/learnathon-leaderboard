@@ -85,6 +85,12 @@ export async function fetchSonarCloudData(
           if (metricsData) {
             const metrics = extractMetrics(metricsData);
             
+            // Log the actual metrics received from SonarCloud
+            logger.info(`Extracted SonarCloud metrics for ${repo.name}`, { 
+              metrics: JSON.stringify(metrics),
+              raw_data: JSON.stringify(metricsData).substring(0, 500) // Log first 500 chars to avoid excessively long logs
+            }, 'sonarcloud');
+            
             sonarDataMap.set(repo.name, {
               project_key: usedKey,
               name: repo.name,
@@ -112,6 +118,9 @@ export async function fetchSonarCloudData(
 function extractMetrics(metricsData: any): SonarMetrics {
   const measures = metricsData.component?.measures || [];
   const metrics: SonarMetrics = {};
+
+  // Log the raw measures data
+  console.log("Raw SonarCloud measures:", measures);
 
   // Map the SonarCloud metrics to our data structure
   measures.forEach((measure: any) => {
@@ -142,6 +151,8 @@ function extractMetrics(metricsData: any): SonarMetrics {
     }
   });
 
+  // Log the final metrics object we're returning
+  console.log("Extracted SonarCloud metrics:", metrics);
   return metrics;
 }
 
