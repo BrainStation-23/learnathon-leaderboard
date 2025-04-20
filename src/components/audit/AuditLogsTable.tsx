@@ -1,17 +1,25 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAuditLogs, fetchActionTypes, fetchEntityTypes, AuditLogFilters } from "@/services/auditService";
 import { AuditFilters } from "./filters/AuditFilters";
 import { AuditTable } from "./table/AuditTable";
 import { AuditPagination } from "./pagination/AuditPagination";
+import { useAuditFilters } from "./hooks/useAuditFilters";
 
 export function AuditLogsTable() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   
-  const [filters, setFilters] = useState<AuditLogFilters>({});
-  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    filters,
+    searchTerm,
+    setSearchTerm,
+    handleFilterChange,
+    resetFilters
+  } = useAuditFilters((newFilters: AuditLogFilters) => {
+    setPage(1); // Reset to first page when filters change
+  });
 
   // Fetch the audit logs with pagination
   const { data, isLoading } = useQuery({
@@ -31,54 +39,35 @@ export function AuditLogsTable() {
     queryFn: fetchEntityTypes
   });
 
-  // Apply search after a short delay for better performance
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm !== filters.search) {
-        setFilters(prev => ({ ...prev, search: searchTerm }));
-        setPage(1); // Reset to first page when search changes
-      }
-    }, 300); // Reduced delay for better responsiveness
-
-    return () => clearTimeout(timer);
-  }, [searchTerm, filters.search]);
-
-  // Handle filter changes
-  const handleFilterChange = (key: keyof AuditLogFilters, value: string | undefined) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPage(1); // Reset to first page when filters change
-  };
-
-  // Reset all filters and search
-  const resetFilters = () => {
-    setFilters({});
-    setSearchTerm("");
-    setPage(1);
-  };
-
   if (isLoading) {
     return <div className="flex justify-center p-8">Loading audit logs...</div>;
   }
 
   return (
     <div className="space-y-4">
-      <AuditFilters
-        filters={filters}
-        searchTerm={searchTerm}
-        actionTypes={actionTypes}
-        entityTypes={entityTypes}
-        onSearchChange={setSearchTerm}
-        onFilterChange={handleFilterChange}
-        onResetFilters={resetFilters}
-      />
+      <div className="sticky top-0 z-10 bg-background pb-4 border-b">
+        <AuditFilters
+          filters={filters}
+          searchTerm={searchTerm}
+          actionTypes={actionTypes}
+          entityTypes={entityTypes}
+          onSearchChange={setSearchTerm}
+          onFilterChange={handleFilterChange}
+          onResetFilters={resetFilters}
+        />
+      </div>
       
-      <AuditTable data={data?.data || []} />
-      
-      <AuditPagination
-        currentPage={page}
-        totalPages={data?.count ? Math.ceil(data.count / pageSize) : 0}
-        onPageChange={setPage}
-      />
+      <div className="pt-4">
+        <AuditTable data={data?.data || []} />
+        
+        <div className="mt-4">
+          <AuditPagination
+            currentPage={page}
+            totalPages={data?.count ? Math.ceil(data.count / pageSize) : 0}
+            onPageChange={setPage}
+          />
+        </div>
+      </div>
     </div>
   );
 }
