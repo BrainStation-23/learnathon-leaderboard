@@ -482,6 +482,13 @@ export type Database = {
           commit_count: number
         }[]
       }
+      get_monthly_contributor_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          month: string
+          contributor_count: number
+        }[]
+      }
       get_repositories_with_metrics: {
         Args: Record<PropertyKey, never>
         Returns: {

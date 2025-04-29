@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { TeamDashboardData, GitHubContributor } from "@/types";
 import { logger } from "../logService";
+import { fetchMonthlyContributorCounts, MonthlyContributorData } from "./contributorMonthlyService";
 
 /**
  * Fetches optimized dashboard overview data from database views
@@ -13,13 +14,15 @@ export async function fetchDashboardOverview() {
       contributorDistribution,
       activityData,
       filterStats,
-      stackDistributionData
+      stackDistributionData,
+      monthlyContributorData
     ] = await Promise.all([
       fetchRepositoryStats(),
       fetchContributorDistribution(),
       fetchRepositoryActivity(),
       fetchFilterStats(),
-      fetchDetailedStackDistribution()
+      fetchDetailedStackDistribution(),
+      fetchMonthlyContributorCounts()
     ]);
 
     return {
@@ -27,7 +30,8 @@ export async function fetchDashboardOverview() {
       contributorDistribution,
       activityData,
       filterStats,
-      ...stackDistributionData
+      ...stackDistributionData,
+      monthlyContributorData
     };
   } catch (error) {
     logger.error("Error fetching optimized dashboard data", { error });

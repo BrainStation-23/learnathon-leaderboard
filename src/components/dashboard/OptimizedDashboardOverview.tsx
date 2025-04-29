@@ -14,12 +14,15 @@ import ContributorStatsCards from "./overview/ContributorStatsCards";
 import StackDistributionTable from "./overview/StackDistributionTable";
 import StackDistributionChart from "./overview/StackDistributionChart";
 import FilterStatsCard from "./overview/FilterStatsCard";
+import MonthlyContributorTable from "./overview/MonthlyContributorTable";
+import MonthlyContributorChart from "./overview/MonthlyContributorChart";
 
 // Import skeleton components
 import StatsCardSkeleton from "./overview/StatsCardSkeleton";
 import ContributorStatsCardSkeleton from "./overview/ContributorStatsCardSkeleton";
 import StackDistributionSkeleton from "./overview/StackDistributionSkeleton";
 import StackDistributionChartSkeleton from "./overview/StackDistributionChartSkeleton";
+import MonthlyContributorSkeleton from "./overview/MonthlyContributorSkeleton";
 
 export default function OptimizedDashboardOverview() {
   const { isConfigured } = useConfig();
@@ -31,6 +34,7 @@ export default function OptimizedDashboardOverview() {
     isStatsLoading,
     isContributorStatsLoading,
     isStackDistributionLoading,
+    isMonthlyContributorLoading,
     refreshDashboard 
   } = useOptimizedDashboardData();
   
@@ -58,7 +62,8 @@ export default function OptimizedDashboardOverview() {
   if (
     isStatsLoading && 
     isContributorStatsLoading && 
-    isStackDistributionLoading
+    isStackDistributionLoading &&
+    isMonthlyContributorLoading
   ) {
     return <LoadingState />;
   }
@@ -106,6 +111,23 @@ export default function OptimizedDashboardOverview() {
           reposWithNoRecentActivity={dashboardStats.activityData.reposWithNoRecentActivity}
         />
       )}
+      
+      {/* Monthly Contributor Stats */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+        {/* Monthly Contributor Chart */}
+        {isMonthlyContributorLoading ? (
+          <MonthlyContributorSkeleton />
+        ) : (
+          <MonthlyContributorChart data={dashboardStats.monthlyContributorData || []} />
+        )}
+        
+        {/* Monthly Contributor Table */}
+        {isMonthlyContributorLoading ? (
+          <MonthlyContributorSkeleton />
+        ) : (
+          <MonthlyContributorTable data={dashboardStats.monthlyContributorData || []} />
+        )}
+      </div>
       
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Stack Distribution Chart */}

@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { fetchDashboardOverview, fetchDashboardData } from "@/services/dashboard/optimizedDashboardService";
 import { TeamDashboardData } from "@/types";
+import { MonthlyContributorData } from "@/services/dashboard/contributorMonthlyService";
 
 export interface DashboardStats {
   repositoryStats: {
@@ -30,6 +31,7 @@ export interface DashboardStats {
   stackDistribution: Record<string, number>;
   droppedOutByStack: Record<string, number>;
   inactiveByStack: Record<string, number>;
+  monthlyContributorData: MonthlyContributorData[];
 }
 
 export default function useOptimizedDashboardData() {
@@ -42,6 +44,7 @@ export default function useOptimizedDashboardData() {
   const [isContributorStatsLoading, setIsContributorStatsLoading] = useState(true);
   const [isStackDistributionLoading, setIsStackDistributionLoading] = useState(true);
   const [isFilterStatsLoading, setIsFilterStatsLoading] = useState(true);
+  const [isMonthlyContributorLoading, setIsMonthlyContributorLoading] = useState(true);
   
   // Data states
   const [dashboardData, setDashboardData] = useState<TeamDashboardData[]>([]);
@@ -69,7 +72,8 @@ export default function useOptimizedDashboardData() {
     },
     stackDistribution: {},
     droppedOutByStack: {},
-    inactiveByStack: {}
+    inactiveByStack: {},
+    monthlyContributorData: []
   });
 
   // Fetch dashboard overview data
@@ -82,6 +86,7 @@ export default function useOptimizedDashboardData() {
       setIsContributorStatsLoading(true);
       setIsStackDistributionLoading(true);
       setIsFilterStatsLoading(true);
+      setIsMonthlyContributorLoading(true);
       
       const overview = await fetchDashboardOverview();
       
@@ -92,6 +97,7 @@ export default function useOptimizedDashboardData() {
       setIsContributorStatsLoading(false);
       setIsStackDistributionLoading(false);
       setIsFilterStatsLoading(false);
+      setIsMonthlyContributorLoading(false);
     } catch (error) {
       console.error("Error loading dashboard overview:", error);
       toast({
@@ -105,6 +111,7 @@ export default function useOptimizedDashboardData() {
       setIsContributorStatsLoading(false);
       setIsStackDistributionLoading(false);
       setIsFilterStatsLoading(false);
+      setIsMonthlyContributorLoading(false);
     }
   };
   
@@ -153,8 +160,9 @@ export default function useOptimizedDashboardData() {
     isLoading,
     isStatsLoading,
     isContributorStatsLoading,
-    isStackDistributionLoading,
+    isStackDistributionLoading, 
     isFilterStatsLoading,
+    isMonthlyContributorLoading,
     
     // Methods
     refreshDashboard,
