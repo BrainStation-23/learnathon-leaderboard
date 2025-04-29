@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Ban, AlertOctagon, UserCheck, HelpCircle } from "lucide-react";
-import { fetchFilterStats } from "@/services/dashboard/optimizedDashboardService";
+import { fetchFilterStats } from "@/services/dashboard/filterStatsService";
 
 interface FilterStats {
   total: number;

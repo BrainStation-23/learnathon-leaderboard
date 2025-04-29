@@ -45,3 +45,9 @@ export async function fetchDashboardOverview() {
 
 // Re-export necessary functions for backward compatibility
 export { fetchDashboardData } from "./repositoryDataService";
+export { fetchFilterStats } from "./filterStatsService";
+export { fetchRepositoryStats } from "./repositoryStatsService";
+export { fetchContributorDistribution } from "./contributorDistributionService";
+export { fetchRepositoryActivity } from "./repositoryActivityService";
+export { fetchDetailedStackDistribution } from "./stackDistributionService";
+export { fetchMonthlyContributorCounts } from "./contributorMonthlyService";
