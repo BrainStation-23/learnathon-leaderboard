@@ -18,6 +18,7 @@ interface RepositoryResult {
   success: boolean;
   errors?: string;
   collaboratorsUpdated?: number;
+  collaboratorsSkipped?: number; // Added for tracking skipped collaborators
   rateLimit?: {
     remaining: number;
     reset: number;
@@ -234,24 +235,30 @@ Deno.serve(async (req) => {
       const results: RepositoryResult[] = [];
       let successCount = 0;
       let failureCount = 0;
+      let reposWithDirectCollaborators = 0;
+      let reposWithoutDirectCollaborators = 0;
       
       for (const repo of allRepos) {
         try {
           console.log(`Processing repository: ${repo.name}`);
           
-          // Get repository collaborators with pagination
-          let allCollaborators = [];
+          // Get ONLY direct repository collaborators with pagination
+          // Using affiliation=direct to filter for direct collaborators only
+          let directCollaborators = [];
           let collabPage = 1;
           let hasMoreCollabs = true;
           
           while (hasMoreCollabs) {
             try {
-              const collabResponse = await fetch(`https://api.github.com/repos/${github_org}/${repo.name}/collaborators?per_page=100&page=${collabPage}`, {
-                headers: {
-                  'Accept': 'application/vnd.github.v3+json',
-                  'Authorization': `token ${github_pat}`
+              const collabResponse = await fetch(
+                `https://api.github.com/repos/${github_org}/${repo.name}/collaborators?per_page=100&page=${collabPage}&affiliation=direct`, 
+                {
+                  headers: {
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': `token ${github_pat}`
+                  }
                 }
-              });
+              );
               
               // Check for rate limit information
               const rateLimit = {
@@ -272,7 +279,7 @@ Deno.serve(async (req) => {
                   }
                 }
                 
-                throw new Error(`Failed to fetch collaborators for ${repo.name} (page ${collabPage}): ${await collabResponse.text()}`);
+                throw new Error(`Failed to fetch direct collaborators for ${repo.name} (page ${collabPage}): ${await collabResponse.text()}`);
               }
               
               const collaborators = await collabResponse.json();
@@ -281,7 +288,7 @@ Deno.serve(async (req) => {
               if (collaborators.length === 0) {
                 hasMoreCollabs = false;
               } else {
-                allCollaborators = [...allCollaborators, ...collaborators];
+                directCollaborators = [...directCollaborators, ...collaborators];
                 
                 // Check Link header for next page
                 const linkHeader = collabResponse.headers.get('Link');
@@ -292,18 +299,37 @@ Deno.serve(async (req) => {
                 await sleep(100);
               }
             } catch (error) {
-              throw new Error(`Error fetching collaborators page ${collabPage}: ${error.message}`);
+              throw new Error(`Error fetching direct collaborators page ${collabPage}: ${error.message}`);
             }
           }
           
-          console.log(`Found ${allCollaborators.length} collaborators for ${repo.name}`);
+          console.log(`Found ${directCollaborators.length} direct collaborators for ${repo.name}`);
+          
+          // If no direct collaborators, continue to next repo and don't count it as a failure
+          if (directCollaborators.length === 0) {
+            console.log(`No direct collaborators found for ${repo.name}, skipping`);
+            reposWithoutDirectCollaborators++;
+            results.push({
+              name: repo.name,
+              success: true,
+              collaboratorsUpdated: 0,
+              collaboratorsSkipped: 0,
+              errors: "No direct collaborators found"
+            });
+            continue;
+          }
+          
+          reposWithDirectCollaborators++;
           let collaboratorsUpdated = 0;
+          let collaboratorsSkipped = 0;
           let collaboratorErrors = [];
           
-          // Update each collaborator's permission
-          for (const collaborator of allCollaborators) {
+          // Update each direct collaborator's permission
+          for (const collaborator of directCollaborators) {
             // Skip bot accounts (usually end with [bot])
             if (collaborator.login.endsWith('[bot]')) {
+              console.log(`Skipping bot account: ${collaborator.login}`);
+              collaboratorsSkipped++;
               continue;
             }
             
@@ -342,11 +368,13 @@ Deno.serve(async (req) => {
                 throw new Error(`Failed to update ${collaborator.login}: ${errorText}`);
               }
               
+              console.log(`Successfully updated ${collaborator.login} to ${githubPermission} permission on ${repo.name}`);
               collaboratorsUpdated++;
               await sleep(100); // Small delay to avoid hitting rate limits too quickly
             } catch (error) {
               console.error(`Error updating ${collaborator.login} on ${repo.name}:`, error);
               collaboratorErrors.push(`${collaborator.login}: ${error.message}`);
+              collaboratorsSkipped++;
             }
           }
           
@@ -354,7 +382,8 @@ Deno.serve(async (req) => {
           const repoResult: RepositoryResult = {
             name: repo.name,
             success: collaboratorErrors.length === 0,
-            collaboratorsUpdated
+            collaboratorsUpdated,
+            collaboratorsSkipped
           };
           
           if (collaboratorErrors.length > 0) {
@@ -378,7 +407,9 @@ Deno.serve(async (req) => {
           results.push({
             name: repo.name,
             success: false,
-            errors: error.message
+            errors: error.message,
+            collaboratorsUpdated: 0,
+            collaboratorsSkipped: 0
           });
           
           failureCount++;
@@ -395,6 +426,8 @@ Deno.serve(async (req) => {
           p_details: { 
             permission_level: permissionLevel,
             repos_processed: allRepos.length,
+            repos_with_direct_collaborators: reposWithDirectCollaborators,
+            repos_without_direct_collaborators: reposWithoutDirectCollaborators,
             success_count: successCount,
             failure_count: failureCount
           }
@@ -408,6 +441,8 @@ Deno.serve(async (req) => {
         JSON.stringify({
           message: 'Repository permissions update completed',
           totalRepos: allRepos.length,
+          reposWithDirectCollaborators,
+          reposWithoutDirectCollaborators,
           successCount,
           failureCount,
           results

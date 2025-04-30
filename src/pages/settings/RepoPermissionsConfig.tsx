@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useConfig } from "@/context/ConfigContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { AlertCircle, Check, Shield, ShieldOff, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Shield, ShieldOff, Loader2, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +15,8 @@ type PermissionLevel = "read" | "admin";
 type PermissionResult = {
   message: string;
   totalRepos: number;
+  reposWithDirectCollaborators: number;
+  reposWithoutDirectCollaborators: number;
   successCount: number;
   failureCount: number;
   results: Array<{
@@ -21,6 +24,7 @@ type PermissionResult = {
     success: boolean;
     errors?: string;
     collaboratorsUpdated?: number;
+    collaboratorsSkipped?: number;
   }>;
 };
 
@@ -80,7 +84,7 @@ export default function RepoPermissionsConfig() {
       
       toast({
         title: "Permissions Updated",
-        description: `Successfully updated ${data.successCount} repositories to ${permissionLevel} permissions.`,
+        description: `Successfully updated ${data.successCount} repositories with direct collaborators to ${permissionLevel} permissions.`,
         variant: "default",
       });
     } catch (err: any) {
@@ -106,6 +110,15 @@ export default function RepoPermissionsConfig() {
         </p>
       </div>
 
+      <Alert variant="warning" className="bg-amber-50 border-amber-200">
+        <Info className="h-4 w-4 text-amber-600" />
+        <AlertTitle className="text-amber-800">How It Works</AlertTitle>
+        <AlertDescription className="text-amber-700">
+          This will update permissions only for <strong>direct collaborators</strong> on your repositories.
+          Team members and organization-wide collaborators won't be affected.
+        </AlertDescription>
+      </Alert>
+
       {!isConfigured && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -124,7 +137,7 @@ export default function RepoPermissionsConfig() {
               Read-Only Access
             </CardTitle>
             <CardDescription>
-              Set all collaborators to read-only access across repositories.
+              Set all direct collaborators to read-only access across repositories.
               This will restrict them from making direct changes.
             </CardDescription>
           </CardHeader>
@@ -154,7 +167,7 @@ export default function RepoPermissionsConfig() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Change All To Read-Only?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will set all collaborators on all repositories to read-only access. 
+                    This will set all direct collaborators on all repositories to read-only access. 
                     They will no longer be able to push directly to the repositories but can still open pull requests.
                     This action cannot be undone automatically.
                   </AlertDialogDescription>
@@ -179,7 +192,7 @@ export default function RepoPermissionsConfig() {
               Admin Access
             </CardTitle>
             <CardDescription>
-              Grant all collaborators admin access across repositories.
+              Grant all direct collaborators admin access across repositories.
               This will give them full control.
             </CardDescription>
           </CardHeader>
@@ -209,7 +222,7 @@ export default function RepoPermissionsConfig() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Change All To Admin?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will set all collaborators on all repositories to admin access.
+                    This will set all direct collaborators on all repositories to admin access.
                     They will have full control over the repositories, including settings.
                     Proceed with caution.
                   </AlertDialogDescription>
@@ -248,11 +261,15 @@ export default function RepoPermissionsConfig() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div className="p-4 bg-muted rounded-lg text-center">
                   <p className="text-2xl font-bold">{permissionResult.totalRepos}</p>
                   <p className="text-xs text-muted-foreground">Total repositories</p>
+                </div>
+                <div className="p-4 bg-blue-50 text-blue-700 rounded-lg text-center">
+                  <p className="text-2xl font-bold">{permissionResult.reposWithDirectCollaborators}</p>
+                  <p className="text-xs">With collaborators</p>
                 </div>
                 <div className="p-4 bg-green-50 text-green-700 rounded-lg text-center">
                   <p className="text-2xl font-bold">{permissionResult.successCount}</p>
@@ -263,6 +280,17 @@ export default function RepoPermissionsConfig() {
                   <p className="text-xs">Failed</p>
                 </div>
               </div>
+
+              {permissionResult.reposWithoutDirectCollaborators > 0 && (
+                <Alert className="bg-gray-50 border-gray-200">
+                  <Info className="h-4 w-4 text-gray-600" />
+                  <AlertTitle className="text-gray-800">Repositories Without Direct Collaborators</AlertTitle>
+                  <AlertDescription className="text-gray-700">
+                    {permissionResult.reposWithoutDirectCollaborators} repositories don't have any direct 
+                    collaborators and were skipped.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {permissionResult.failureCount > 0 && (
                 <div className="mt-4">
@@ -278,6 +306,19 @@ export default function RepoPermissionsConfig() {
                   </ul>
                 </div>
               )}
+
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Collaborator Details:</h4>
+                <ul className="text-sm space-y-1">
+                  {permissionResult.results
+                    .filter(r => r.collaboratorsUpdated && r.collaboratorsUpdated > 0)
+                    .map(repo => (
+                      <li key={repo.name} className="text-green-600">
+                        {repo.name}: {repo.collaboratorsUpdated} updated, {repo.collaboratorsSkipped} skipped
+                      </li>
+                    ))}
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>
