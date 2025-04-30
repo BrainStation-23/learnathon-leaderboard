@@ -11,7 +11,13 @@ export function useIndividualContributors(initialPageSize = 20) {
   const [hasMore, setHasMore] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [totalPages, setTotalPages] = useState(0);
   const { toast } = useToast();
+
+  // Function to estimate total pages based on current page and hasMore
+  const estimateTotalPages = useCallback((currentPage: number, moreAvailable: boolean) => {
+    return moreAvailable ? Math.max(currentPage + 1, totalPages) : currentPage;
+  }, [totalPages]);
 
   const loadContributors = useCallback(async (pageNumber: number, isNewSearch = false) => {
     try {
@@ -30,6 +36,7 @@ export function useIndividualContributors(initialPageSize = 20) {
       }
       
       setHasMore(moreAvailable);
+      setTotalPages(estimateTotalPages(pageNumber, moreAvailable));
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load contributors'));
       toast({
@@ -40,25 +47,20 @@ export function useIndividualContributors(initialPageSize = 20) {
     } finally {
       setLoading(false);
     }
-  }, [initialPageSize, toast, searchTerm, sortOrder]);
+  }, [initialPageSize, toast, searchTerm, sortOrder, estimateTotalPages]);
 
-  // Load initial data when component mounts or when search/sort changes
+  // Load initial data when component mounts or when search/sort/page changes
   useEffect(() => {
-    setPage(1);
-    loadContributors(1, true);
-  }, [loadContributors, searchTerm, sortOrder]);
+    loadContributors(page, true);
+  }, [loadContributors, searchTerm, sortOrder, page]);
 
   // Function to load more contributors
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
-      loadContributors(nextPage);
     }
-  }, [loading, hasMore, page, loadContributors]);
-
-  // Now search and sorting are handled server-side by the RPC function
-  // No need for filteredContributors function anymore
+  }, [loading, hasMore, page]);
 
   return {
     contributors,
@@ -69,6 +71,9 @@ export function useIndividualContributors(initialPageSize = 20) {
     searchTerm,
     setSearchTerm,
     sortOrder,
-    setSortOrder
+    setSortOrder,
+    page,
+    setPage,
+    totalPages
   };
 }
