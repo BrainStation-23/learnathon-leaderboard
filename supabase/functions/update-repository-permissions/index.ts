@@ -31,12 +31,15 @@ Deno.serve(async (req) => {
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
     // Get the JWT from the request
     const authHeader = req.headers.get('Authorization');
+    console.log("Auth header present:", !!authHeader);
+    
     if (!authHeader) {
       console.error("No authorization header found");
       return new Response(
@@ -44,8 +47,11 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Log the auth header type (should start with Bearer)
+    console.log("Auth header type:", authHeader.substring(0, 6));
     
-    console.log("Authorization header found, creating supabase client");
+    console.log("Creating Supabase client...");
     
     // Create a Supabase client with the service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -63,10 +69,17 @@ Deno.serve(async (req) => {
       );
     }
     
+    // Create client with service role but pass the user's JWT
     const supabaseClient = createClient(
       supabaseUrl,
       supabaseServiceRole,
-      { global: { headers: { Authorization: authHeader } } }
+      { 
+        global: { 
+          headers: { 
+            Authorization: authHeader 
+          } 
+        } 
+      }
     );
 
     // Get and validate request body
@@ -78,6 +91,7 @@ Deno.serve(async (req) => {
       const parsedBody = RequestSchema.safeParse(requestBody);
       
       if (!parsedBody.success) {
+        console.error("Invalid request body:", parsedBody.error.format());
         return new Response(
           JSON.stringify({ 
             error: 'Bad Request', 
@@ -102,23 +116,53 @@ Deno.serve(async (req) => {
     
     // Get user id from JWT
     console.log("Getting user from JWT");
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
+    const { data: userData, error: authError } = await supabaseClient.auth.getUser();
+    
+    // Log authentication results
+    if (authError) {
+      console.error("Auth error details:", {
+        name: authError.name,
+        message: authError.message,
+        status: authError.status
+      });
+    } else {
+      console.log("User authenticated:", !!userData?.user);
+      if (userData?.user) {
+        console.log("User ID:", userData.user.id);
+      }
+    }
+    
+    if (authError || !userData?.user) {
       console.error("Auth error or no user found:", authError);
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', message: 'User not found', details: authError?.message }),
+        JSON.stringify({ 
+          error: 'Unauthorized', 
+          message: 'User not found or invalid session', 
+          details: authError?.message || 'No user data returned'
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
+    const user = userData.user;
     console.log(`User ${user.id} requested permission change to ${permissionLevel}`);
     
     // Get user's GitHub configuration
+    console.log("Fetching GitHub configuration");
     const { data: config, error: configError } = await supabaseClient
       .from('configurations')
       .select('github_org, github_pat')
       .eq('user_id', user.id)
       .single();
+      
+    if (configError) {
+      console.error("Configuration fetch error:", configError);
+    } else {
+      console.log("Config fetched:", {
+        hasGithubOrg: !!config?.github_org,
+        hasGithubPat: !!config?.github_pat
+      });
+    }
       
     if (configError || !config || !config.github_pat || !config.github_org) {
       const reason = !config ? 'Configuration not found' : 
@@ -145,6 +189,8 @@ Deno.serve(async (req) => {
         }
       });
       
+      console.log("GitHub PAT test response status:", testResponse.status);
+      
       if (!testResponse.ok) {
         const errorMessage = await testResponse.text();
         console.error('GitHub PAT validation failed:', errorMessage);
@@ -164,6 +210,8 @@ Deno.serve(async (req) => {
         remaining: parseInt(testResponse.headers.get('x-ratelimit-remaining') || '5000'),
         resetTime: parseInt(testResponse.headers.get('x-ratelimit-reset') || '0')
       };
+      
+      console.log("GitHub rate limits:", rateLimit);
       
       if (rateLimit.remaining < 100) {
         console.warn(`Low GitHub rate limit remaining: ${rateLimit.remaining}`);

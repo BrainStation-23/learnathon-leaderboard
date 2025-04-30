@@ -9,6 +9,7 @@ import { AlertCircle, Check, Shield, ShieldOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { logger } from "@/services/logService";
 
 type PermissionLevel = "read" | "admin";
 type PermissionResult = {
@@ -41,23 +42,43 @@ export default function RepoPermissionsConfig() {
       });
       return;
     }
+
+    if (!session.access_token) {
+      logger.error("Missing access token in session", { userId: user.id });
+      toast({
+        title: "Authentication error",
+        description: "Your session doesn't contain a valid access token. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     setPermissionResult(null);
     
     try {
-      console.log("Calling update-repository-permissions function...");
-      const { data, error } = await supabase.functions.invoke("update-repository-permissions", {
+      logger.info("Calling update-repository-permissions function", { permissionLevel, userId: user.id });
+      
+      // Log auth token details (not the actual token) for debugging 
+      console.log("Auth session validation:", {
+        hasAccessToken: !!session.access_token,
+        userIdMatches: session.user.id === user.id,
+      });
+
+      const { data, error: functionError } = await supabase.functions.invoke("update-repository-permissions", {
         body: { permissionLevel },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
       
-      if (error) {
-        console.error("Function error:", error);
-        throw new Error(error.message || "Failed to update permissions");
+      if (functionError) {
+        logger.error("Function error:", functionError);
+        throw new Error(functionError.message || "Failed to update permissions");
       }
       
-      console.log("Function response:", data);
+      logger.info("Function response:", data);
       setPermissionResult(data);
       
       toast({
@@ -65,8 +86,8 @@ export default function RepoPermissionsConfig() {
         description: `Successfully updated ${data.successCount} repositories to ${permissionLevel} permissions.`,
         variant: "default",
       });
-    } catch (err) {
-      console.error("Error updating permissions:", err);
+    } catch (err: any) {
+      logger.error("Error updating permissions:", err);
       setError(err.message || "Failed to update permissions");
       
       toast({
@@ -121,7 +142,7 @@ export default function RepoPermissionsConfig() {
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={!isConfigured || isLoading}
+                  disabled={!isConfigured || isLoading || !session?.access_token}
                   className="w-full"
                 >
                   {isLoading ? (
@@ -176,7 +197,7 @@ export default function RepoPermissionsConfig() {
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={!isConfigured || isLoading}
+                  disabled={!isConfigured || isLoading || !session?.access_token}
                   className="w-full"
                 >
                   {isLoading ? (
