@@ -1,6 +1,6 @@
 
 import React from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import DashboardLayout from "./DashboardLayout";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ export default function SettingsLayout({ children }: { children?: React.ReactNod
           
           {/* Settings Content */}
           <div className="col-span-12 md:col-span-8">
-            {children || <Outlet />}
+            {children}
           </div>
         </div>
       </div>

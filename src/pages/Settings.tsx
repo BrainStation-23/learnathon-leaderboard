@@ -1,6 +1,6 @@
 
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Outlet } from "react-router-dom";
 import SettingsLayout from "@/components/layout/SettingsLayout";
 
 const Settings = () => {
@@ -11,7 +11,7 @@ const Settings = () => {
     navigate("/settings/dashboard", { replace: true });
   }, [navigate]);
 
-  return <SettingsLayout />;
+  return <SettingsLayout><Outlet /></SettingsLayout>;
 };
 
 export default Settings;
