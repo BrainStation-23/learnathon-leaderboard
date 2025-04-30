@@ -46,17 +46,34 @@ export async function fetchIndividualContributors(
     // Extract hasMore from the first row's result
     const hasMore = data[0]?.has_more || false;
     
-    // Map the data to match our interface
-    const contributors: IndividualContributor[] = data.map(item => ({
-      login: item.login,
-      avatar_url: item.avatar_url || '',
-      total_contributions: Number(item.total_contributions),
-      repositories: Array.isArray(item.repositories) 
-        ? item.repositories 
-        : (typeof item.repositories === 'object' && item.repositories !== null)
-          ? Object.values(item.repositories)
-          : []
-    }));
+    // Properly parse the repositories JSON
+    const contributors: IndividualContributor[] = data.map(item => {
+      // Ensure repositories is properly parsed as an array of objects
+      let repositories = [];
+      
+      try {
+        if (typeof item.repositories === 'string') {
+          // If it's a string, try to parse it
+          repositories = JSON.parse(item.repositories);
+        } else if (Array.isArray(item.repositories)) {
+          // If it's already an array, use it directly
+          repositories = item.repositories;
+        } else if (typeof item.repositories === 'object' && item.repositories !== null) {
+          // If it's an object but not an array, convert it to an array
+          repositories = Object.values(item.repositories);
+        }
+      } catch (e) {
+        logger.error("Error parsing repositories data:", { error: e, rawData: item.repositories });
+        repositories = [];
+      }
+      
+      return {
+        login: item.login,
+        avatar_url: item.avatar_url || '',
+        total_contributions: Number(item.total_contributions),
+        repositories: repositories as {id: string; name: string; contributions: number}[]
+      };
+    });
     
     return { 
       data: contributors,
