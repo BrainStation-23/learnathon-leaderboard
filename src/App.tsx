@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,7 @@ import DashboardConfig from "./pages/settings/DashboardConfig";
 import LeaderboardConfig from "./pages/settings/LeaderboardConfig";
 import TechStacksConfig from "./pages/settings/TechStacksConfig";
 import RepoFilterConfig from "./pages/settings/RepoFilterConfig";
+import RepoPermissionsConfig from "./pages/settings/RepoPermissionsConfig";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import IndividualContributors from "./pages/IndividualContributors";
@@ -53,6 +55,7 @@ function App() {
                 <Route path="/settings/leaderboard" element={<LeaderboardConfig />} />
                 <Route path="/settings/tech-stacks" element={<TechStacksConfig />} />
                 <Route path="/settings/repo-filter" element={<RepoFilterConfig />} />
+                <Route path="/settings/repo-permissions" element={<RepoPermissionsConfig />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

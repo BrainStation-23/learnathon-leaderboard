@@ -4,7 +4,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import DashboardLayout from "./DashboardLayout";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Settings as SettingsIcon, BarChart2, Code, Ban } from "lucide-react";
+import { Settings as SettingsIcon, BarChart2, Code, Ban, Shield } from "lucide-react";
 
 interface SettingsNavItemProps {
   to: string;
@@ -52,6 +52,9 @@ export default function SettingsLayout({ children }: { children?: React.ReactNod
               </SettingsNavItem>
               <SettingsNavItem to="/settings/repo-filter" icon={Ban}>
                 Repository Filtering
+              </SettingsNavItem>
+              <SettingsNavItem to="/settings/repo-permissions" icon={Shield}>
+                Repository Permissions
               </SettingsNavItem>
             </nav>
           </aside>
