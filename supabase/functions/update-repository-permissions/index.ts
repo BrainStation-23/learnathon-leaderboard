@@ -27,31 +27,54 @@ interface RepositoryResult {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 Deno.serve(async (req) => {
+  console.log("Update repository permissions function called");
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    // Get the JWT from the request if available
-    const authHeader = req.headers.get('Authorization')
+    // Get the JWT from the request
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("No authorization header found");
       return new Response(
         JSON.stringify({ error: 'Unauthorized', message: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
+    }
+    
+    console.log("Authorization header found, creating supabase client");
+    
+    // Create a Supabase client with the service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    // Log for debugging (don't include the actual keys in logs)
+    console.log(`SUPABASE_URL defined: ${!!supabaseUrl}`);
+    console.log(`SUPABASE_SERVICE_ROLE_KEY defined: ${!!supabaseServiceRole}`);
+    
+    if (!supabaseUrl || !supabaseServiceRole) {
+      console.error("Missing Supabase environment variables");
+      return new Response(
+        JSON.stringify({ error: 'Server Configuration Error', message: 'Missing required environment variables' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceRole,
       { global: { headers: { Authorization: authHeader } } }
-    )
+    );
 
     // Get and validate request body
     let requestBody;
     try {
       requestBody = await req.json();
+      console.log("Request body:", JSON.stringify(requestBody));
+      
       const parsedBody = RequestSchema.safeParse(requestBody);
       
       if (!parsedBody.success) {
@@ -62,54 +85,59 @@ Deno.serve(async (req) => {
             details: parsedBody.error.format()
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        );
       }
       
       // Extract validated data
       const { permissionLevel } = parsedBody.data;
     } catch (error) {
+      console.error("Error parsing request body:", error);
       return new Response(
         JSON.stringify({ error: 'Bad Request', message: 'Invalid JSON payload', details: error.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
     
     const { permissionLevel } = requestBody;
     
     // Get user id from JWT
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    console.log("Getting user from JWT");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
+      console.error("Auth error or no user found:", authError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized', message: 'User not found', details: authError?.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
     
-    console.log(`User ${user.id} requested permission change to ${permissionLevel}`)
+    console.log(`User ${user.id} requested permission change to ${permissionLevel}`);
     
     // Get user's GitHub configuration
     const { data: config, error: configError } = await supabaseClient
       .from('configurations')
       .select('github_org, github_pat')
       .eq('user_id', user.id)
-      .single()
+      .single();
       
     if (configError || !config || !config.github_pat || !config.github_org) {
       const reason = !config ? 'Configuration not found' : 
                      !config.github_pat ? 'GitHub PAT missing' : 
                      !config.github_org ? 'GitHub organization missing' : 
                      configError?.message;
-                     
+      
+      console.error("Configuration error:", reason);             
       return new Response(
         JSON.stringify({ error: 'Configuration Error', message: 'GitHub configuration incomplete', details: reason }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
     
-    const { github_org, github_pat } = config
+    const { github_org, github_pat } = config;
     
     // Test PAT validity by checking user info first
     try {
+      console.log("Testing GitHub PAT validity");
       const testResponse = await fetch('https://api.github.com/user', {
         headers: {
           'Authorization': `token ${github_pat}`,
@@ -128,7 +156,7 @@ Deno.serve(async (req) => {
             details: errorMessage
           }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        );
       }
       
       // Check rate limit
@@ -146,16 +174,18 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'GitHub API Error', message: 'Failed to validate GitHub token', details: error.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
     
     // Map permission level to GitHub API permission format
-    const githubPermission = permissionLevel === 'read' ? 'pull' : 'admin'
+    const githubPermission = permissionLevel === 'read' ? 'pull' : 'admin';
     
     // Fetch all repositories for the organization with pagination support
     let allRepos = [];
     let page = 1;
     let hasMorePages = true;
+    
+    console.log(`Fetching repositories for organization ${github_org}`);
     
     while (hasMorePages) {
       try {
@@ -202,7 +232,7 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ error: 'GitHub API Error', message: `Failed to fetch repositories (page ${page})`, details: error.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        );
       }
     }
     
@@ -391,13 +421,13 @@ Deno.serve(async (req) => {
         results
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
     
   } catch (error) {
     console.error('Unhandled error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
   }
 })

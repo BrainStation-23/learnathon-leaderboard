@@ -26,28 +26,38 @@ type PermissionResult = {
 
 export default function RepoPermissionsConfig() {
   const { config, isConfigured } = useConfig();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [permissionResult, setPermissionResult] = useState<PermissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const updatePermissions = async (permissionLevel: PermissionLevel) => {
-    if (!user || !isConfigured) return;
+    if (!user || !session || !isConfigured) {
+      toast({
+        title: "Not authenticated",
+        description: "You must be logged in with a valid session to perform this action.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     setPermissionResult(null);
     
     try {
+      console.log("Calling update-repository-permissions function...");
       const { data, error } = await supabase.functions.invoke("update-repository-permissions", {
         body: { permissionLevel },
       });
       
       if (error) {
+        console.error("Function error:", error);
         throw new Error(error.message || "Failed to update permissions");
       }
       
+      console.log("Function response:", data);
       setPermissionResult(data);
       
       toast({
