@@ -9,6 +9,8 @@ export function useIndividualContributors(initialPageSize = 20) {
   const [error, setError] = useState<Error | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
 
   const loadContributors = useCallback(async (pageNumber: number) => {
@@ -49,11 +51,47 @@ export function useIndividualContributors(initialPageSize = 20) {
     }
   }, [loading, hasMore, page, loadContributors]);
 
+  // Function to search and filter contributors
+  const filteredContributors = useCallback(() => {
+    if (!searchTerm) {
+      // Just sort if no search term
+      return [...contributors].sort((a, b) => {
+        return sortOrder === 'desc' 
+          ? b.total_contributions - a.total_contributions 
+          : a.total_contributions - b.total_contributions;
+      });
+    }
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    return [...contributors]
+      .filter(contributor => {
+        // Search by username
+        if (contributor.login.toLowerCase().includes(lowerSearchTerm)) {
+          return true;
+        }
+        
+        // Search by repository name
+        return contributor.repositories.some(repo => 
+          repo.name.toLowerCase().includes(lowerSearchTerm)
+        );
+      })
+      .sort((a, b) => {
+        return sortOrder === 'desc' 
+          ? b.total_contributions - a.total_contributions 
+          : a.total_contributions - b.total_contributions;
+      });
+  }, [contributors, searchTerm, sortOrder]);
+
   return {
-    contributors,
+    contributors: filteredContributors(),
     loading,
     error,
     hasMore,
-    loadMore
+    loadMore,
+    searchTerm,
+    setSearchTerm,
+    sortOrder,
+    setSortOrder
   };
 }
