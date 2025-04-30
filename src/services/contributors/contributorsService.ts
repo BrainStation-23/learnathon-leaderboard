@@ -48,19 +48,21 @@ export async function fetchIndividualContributors(
     
     // Process the data to ensure all properties match our interface
     const contributors: IndividualContributor[] = data.map(item => {
-      // JSONB data from Postgres comes as parsed objects already, no need to parse it again
-      // Just validate and transform if needed to match our expected structure
-      
+      // JSONB data from Postgres comes as parsed objects already
       // Default empty array if repositories is null
-      let repositories = item.repositories || [];
+      const repositories = item.repositories || [];
       
-      // Ensure each repository has the expected structure
+      // Ensure each repository has the expected structure with proper type assertions
       const typedRepositories = Array.isArray(repositories) 
-        ? repositories.map(repo => ({
-            id: String(repo.id || ''),
-            name: String(repo.name || ''),
-            contributions: Number(repo.contributions || 0)
-          }))
+        ? repositories.map(repo => {
+            // Using type assertion to tell TypeScript that these properties exist
+            const repoObj = repo as any;
+            return {
+              id: String(repoObj.id || ''),
+              name: String(repoObj.name || ''),
+              contributions: Number(repoObj.contributions || 0)
+            };
+          })
         : [];
       
       return {
