@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useConfig } from "@/context/ConfigContext";
 import { useAuth } from "@/context/AuthContext";
@@ -27,64 +26,47 @@ type PermissionResult = {
 
 export default function RepoPermissionsConfig() {
   const { config, isConfigured } = useConfig();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [permissionResult, setPermissionResult] = useState<PermissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Debug logging for session and auth state
+  // Debug logging for auth state
   useEffect(() => {
-    if (session) {
-      logger.info("Auth session available", { 
-        hasUser: !!user,
-        hasAccessToken: !!session?.access_token,
-        expiresAt: session?.expires_at
+    if (user) {
+      logger.info("User authenticated", { 
+        userId: user.id
       });
     } else {
-      logger.warn("No auth session available");
+      logger.warn("No authenticated user available");
     }
-  }, [user, session]);
+  }, [user]);
 
   const updatePermissions = async (permissionLevel: PermissionLevel) => {
-    if (!user || !session) {
+    if (!user) {
       toast({
         title: "Not authenticated",
-        description: "You must be logged in with a valid session to perform this action.",
+        description: "You must be logged in to perform this action.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!session.access_token) {
-      logger.error("Missing access token in session", { userId: user.id });
-      toast({
-        title: "Authentication error",
-        description: "Your session doesn't contain a valid access token. Please try logging in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsLoading(true);
     setError(null);
     setPermissionResult(null);
     
     try {
-      logger.info("Calling update-repository-permissions function", { permissionLevel, userId: user.id });
-      
-      // Detailed log of auth session state for debugging
-      logger.info("Auth session validation:", {
-        hasAccessToken: !!session.access_token,
-        userIdMatches: session.user.id === user.id,
-        tokenExpiry: new Date(session.expires_at! * 1000).toISOString(),
-        tokenExpiresIn: Math.floor((session.expires_at! * 1000 - Date.now()) / 1000) + " seconds"
+      logger.info("Calling update-repository-permissions function", { 
+        permissionLevel, 
+        userId: user.id 
       });
-
+      
       const { data, error: functionError } = await supabase.functions.invoke("update-repository-permissions", {
-        body: { permissionLevel },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
+        body: { 
+          permissionLevel,
+          userId: user.id
         }
       });
       
@@ -157,7 +139,7 @@ export default function RepoPermissionsConfig() {
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={!isConfigured || isLoading || !session?.access_token}
+                  disabled={!isConfigured || isLoading || !user}
                   className="w-full"
                 >
                   {isLoading ? (
@@ -212,7 +194,7 @@ export default function RepoPermissionsConfig() {
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={!isConfigured || isLoading || !session?.access_token}
+                  disabled={!isConfigured || isLoading || !user}
                   className="w-full"
                 >
                   {isLoading ? (

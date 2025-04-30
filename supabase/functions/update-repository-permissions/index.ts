@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { z } from 'https://esm.sh/zod@3.21.4'
 
@@ -8,7 +9,8 @@ const corsHeaders = {
 
 // Schema validation for request body
 const RequestSchema = z.object({
-  permissionLevel: z.enum(['read', 'admin'])
+  permissionLevel: z.enum(['read', 'admin']),
+  userId: z.string().uuid()  // Require the userId to be passed from the frontend
 })
 
 interface RepositoryResult {
@@ -35,22 +37,6 @@ Deno.serve(async (req) => {
   }
   
   try {
-    // Get the JWT from the request
-    const authHeader = req.headers.get('Authorization');
-    console.log("Auth header present:", !!authHeader);
-    
-    if (!authHeader) {
-      console.error("No authorization header found");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized', message: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Detailed logging of auth header
-    console.log("Auth header type:", authHeader.substring(0, 6));
-    console.log("Auth header length:", authHeader.length);
-    
     // Create a Supabase client with the service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -69,83 +55,48 @@ Deno.serve(async (req) => {
     // Create a server-side admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole);
     
-    // Verify the JWT and get user info
-    console.log("Creating auth-only client to verify token");
+    // Get and validate request body
+    let requestBody;
     try {
-      // Extract token from auth header (remove "Bearer " prefix)
-      const token = authHeader.replace('Bearer ', '');
+      requestBody = await req.json();
+      console.log("Request body:", JSON.stringify(requestBody));
       
-      // Attempt to get user directly from the JWT
-      const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
+      const parsedBody = RequestSchema.safeParse(requestBody);
       
-      if (authError) {
-        console.error("Auth error details:", {
-          name: authError.name,
-          message: authError.message,
-          status: authError.status
-        });
-        
+      if (!parsedBody.success) {
+        console.error("Invalid request body:", parsedBody.error.format());
         return new Response(
           JSON.stringify({ 
-            error: 'Unauthorized', 
-            message: 'Invalid authentication token', 
-            details: authError.message 
+            error: 'Bad Request', 
+            message: 'Invalid request parameters',
+            details: parsedBody.error.format()
           }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (!userData || !userData.user) {
-        console.error("No user data found from token");
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized', message: 'User not found from token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      console.log("User authenticated successfully:", userData.user.id);
-      
-      // Get and validate request body
-      let requestBody;
-      try {
-        requestBody = await req.json();
-        console.log("Request body:", JSON.stringify(requestBody));
-        
-        const parsedBody = RequestSchema.safeParse(requestBody);
-        
-        if (!parsedBody.success) {
-          console.error("Invalid request body:", parsedBody.error.format());
-          return new Response(
-            JSON.stringify({ 
-              error: 'Bad Request', 
-              message: 'Permission level must be "read" or "admin"',
-              details: parsedBody.error.format()
-            }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        // Extract validated data
-        const { permissionLevel } = parsedBody.data;
-      } catch (error) {
-        console.error("Error parsing request body:", error);
-        return new Response(
-          JSON.stringify({ error: 'Bad Request', message: 'Invalid JSON payload', details: error.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      const { permissionLevel } = requestBody;
-      const user = userData.user;
+      // Extract validated data
+      const { permissionLevel, userId } = parsedBody.data;
       
-      console.log(`User ${user.id} requested permission change to ${permissionLevel}`);
+      // Use the service role to get the user data
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (userError || !userData) {
+        console.error("Error fetching user:", userError);
+        return new Response(
+          JSON.stringify({ error: 'User Error', message: 'Could not validate user', details: userError?.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`User ${userId} requested permission change to ${permissionLevel}`);
       
       // Get user's GitHub configuration
-      console.log("Fetching GitHub configuration for user:", user.id);
+      console.log("Fetching GitHub configuration for user:", userId);
       const { data: config, error: configError } = await supabaseAdmin
         .from('configurations')
         .select('github_org, github_pat')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
         
       if (configError) {
@@ -434,13 +385,10 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Mock response for debugging (remove in production)
-      console.log("Returning mock success response for testing");
-      
       // Log the action in audit_logs
       try {
         await supabaseAdmin.rpc('log_audit_event', {
-          p_user_id: user.id,
+          p_user_id: userId,
           p_action: 'update_repository_permissions',
           p_entity_type: 'repository',
           p_entity_id: null,
@@ -466,15 +414,13 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-      
-    } catch (authError) {
-      console.error("Error verifying token:", authError);
+    } catch (error) {
+      console.error("Error parsing request or processing data:", error);
       return new Response(
-        JSON.stringify({ error: 'Authentication Error', message: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Bad Request', message: 'Error processing request data', details: error.message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
   } catch (error) {
     console.error('Unhandled error:', error);
     return new Response(
