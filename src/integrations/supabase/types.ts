@@ -475,6 +475,21 @@ export type Database = {
           other: number
         }[]
       }
+      get_individual_contributors: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+          p_search_term?: string
+          p_sort_order?: string
+        }
+        Returns: {
+          login: string
+          avatar_url: string
+          total_contributions: number
+          repositories: Json
+          has_more: boolean
+        }[]
+      }
       get_monthly_commit_activity: {
         Args: Record<PropertyKey, never>
         Returns: {

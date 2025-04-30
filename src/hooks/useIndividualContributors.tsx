@@ -13,12 +13,17 @@ export function useIndividualContributors(initialPageSize = 20) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
 
-  const loadContributors = useCallback(async (pageNumber: number) => {
+  const loadContributors = useCallback(async (pageNumber: number, isNewSearch = false) => {
     try {
       setLoading(true);
-      const { data, hasMore: moreAvailable } = await fetchIndividualContributors(pageNumber, initialPageSize);
+      const { data, hasMore: moreAvailable } = await fetchIndividualContributors(
+        pageNumber, 
+        initialPageSize,
+        searchTerm,
+        sortOrder
+      );
       
-      if (pageNumber === 1) {
+      if (pageNumber === 1 || isNewSearch) {
         setContributors(data);
       } else {
         setContributors(prev => [...prev, ...data]);
@@ -35,12 +40,13 @@ export function useIndividualContributors(initialPageSize = 20) {
     } finally {
       setLoading(false);
     }
-  }, [initialPageSize, toast]);
+  }, [initialPageSize, toast, searchTerm, sortOrder]);
 
-  // Load initial data
+  // Load initial data when component mounts or when search/sort changes
   useEffect(() => {
-    loadContributors(1);
-  }, [loadContributors]);
+    setPage(1);
+    loadContributors(1, true);
+  }, [loadContributors, searchTerm, sortOrder]);
 
   // Function to load more contributors
   const loadMore = useCallback(() => {
@@ -51,40 +57,11 @@ export function useIndividualContributors(initialPageSize = 20) {
     }
   }, [loading, hasMore, page, loadContributors]);
 
-  // Function to search and filter contributors
-  const filteredContributors = useCallback(() => {
-    if (!searchTerm) {
-      // Just sort if no search term
-      return [...contributors].sort((a, b) => {
-        return sortOrder === 'desc' 
-          ? b.total_contributions - a.total_contributions 
-          : a.total_contributions - b.total_contributions;
-      });
-    }
-    
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    
-    return [...contributors]
-      .filter(contributor => {
-        // Search by username
-        if (contributor.login.toLowerCase().includes(lowerSearchTerm)) {
-          return true;
-        }
-        
-        // Search by repository name
-        return contributor.repositories.some(repo => 
-          repo.name.toLowerCase().includes(lowerSearchTerm)
-        );
-      })
-      .sort((a, b) => {
-        return sortOrder === 'desc' 
-          ? b.total_contributions - a.total_contributions 
-          : a.total_contributions - b.total_contributions;
-      });
-  }, [contributors, searchTerm, sortOrder]);
+  // Now search and sorting are handled server-side by the RPC function
+  // No need for filteredContributors function anymore
 
   return {
-    contributors: filteredContributors(),
+    contributors,
     loading,
     error,
     hasMore,

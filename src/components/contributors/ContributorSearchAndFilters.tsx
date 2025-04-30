@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, ArrowUp, ArrowDown } from "lucide-react";
@@ -17,6 +17,19 @@ export default function ContributorSearchAndFilters({
   sortOrder,
   setSortOrder
 }: ContributorSearchAndFiltersProps) {
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
+  
+  // Debounce search to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearchTerm !== searchTerm) {
+        setSearchTerm(localSearchTerm);
+      }
+    }, 500); // 500ms delay
+    
+    return () => clearTimeout(timer);
+  }, [localSearchTerm, setSearchTerm, searchTerm]);
+  
   const toggleSortOrder = () => {
     setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
   };
@@ -27,8 +40,8 @@ export default function ContributorSearchAndFilters({
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input 
           placeholder="Search by username or repository..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={localSearchTerm}
+          onChange={(e) => setLocalSearchTerm(e.target.value)}
           className="pl-9"
         />
       </div>

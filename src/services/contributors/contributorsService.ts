@@ -13,76 +13,50 @@ export interface IndividualContributor {
   }[];
 }
 
-interface ContributorRepoData {
-  login: string;
-  avatar_url: string | null;
-  repository_id: string;
-  repository_name: string;
-  contributions: number;
+interface GetIndividualContributorsResponse {
+  data: IndividualContributor[];
+  hasMore: boolean;
 }
 
 export async function fetchIndividualContributors(
   page: number = 1, 
-  pageSize: number = 20
-): Promise<{ data: IndividualContributor[], hasMore: boolean }> {
+  pageSize: number = 20,
+  searchTerm: string = '',
+  sortOrder: 'asc' | 'desc' = 'desc'
+): Promise<GetIndividualContributorsResponse> {
   try {
-    // First, fetch filtered contributor logins to exclude them
-    const { data: configData } = await supabase
-      .from('configurations')
-      .select('filtered_contributors')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    
-    const filteredContributors = configData?.filtered_contributors || [];
-    
-    // Get contributors with repositories using our custom SQL function
-    const { data: contributorsData, error } = await supabase
-      .rpc('get_contributors_with_repos', {
+    // Use the new database RPC function
+    const { data, error } = await supabase
+      .rpc('get_individual_contributors', {
         p_page: page,
         p_page_size: pageSize,
-        p_filtered_logins: filteredContributors
-      }) as { data: ContributorRepoData[] | null, error: Error | null };
+        p_search_term: searchTerm || null, // Convert empty string to null
+        p_sort_order: sortOrder
+      });
       
     if (error) {
       logger.error("Error fetching individual contributors:", { error });
       return { data: [], hasMore: false };
     }
     
-    // Transform the data to the format we need
-    const groupedContributors: Record<string, IndividualContributor> = {};
-    
-    if (Array.isArray(contributorsData)) {
-      contributorsData.forEach((item) => {
-        if (!groupedContributors[item.login]) {
-          groupedContributors[item.login] = {
-            login: item.login,
-            avatar_url: item.avatar_url || '', 
-            total_contributions: 0,
-            repositories: []
-          };
-        }
-        
-        // Add repository to the contributor's list
-        if (item.repository_id) {
-          groupedContributors[item.login].repositories.push({
-            id: item.repository_id,
-            name: item.repository_name,
-            contributions: item.contributions
-          });
-          
-          // Add to total contributions
-          groupedContributors[item.login].total_contributions += item.contributions;
-        }
-      });
+    if (!Array.isArray(data) || data.length === 0) {
+      return { data: [], hasMore: false };
     }
     
-    // Convert to array and sort by total contributions
-    const contributors = Object.values(groupedContributors)
-      .sort((a, b) => b.total_contributions - a.total_contributions);
+    // Extract hasMore from the first row's result
+    const hasMore = data[0]?.has_more || false;
     
-    // Determine if there are more contributors to load
-    const hasMore = contributors.length === pageSize;
+    // Map the data to match our interface
+    const contributors: IndividualContributor[] = data.map(item => ({
+      login: item.login,
+      avatar_url: item.avatar_url || '',
+      total_contributions: Number(item.total_contributions),
+      repositories: Array.isArray(item.repositories) 
+        ? item.repositories 
+        : (typeof item.repositories === 'object' && item.repositories !== null)
+          ? Object.values(item.repositories)
+          : []
+    }));
     
     return { 
       data: contributors,
