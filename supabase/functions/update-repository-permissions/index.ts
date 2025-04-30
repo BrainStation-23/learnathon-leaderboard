@@ -1,21 +1,30 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { z } from 'https://esm.sh/zod@3.21.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface RequestBody {
-  permissionLevel: 'read' | 'admin'
-}
+// Schema validation for request body
+const RequestSchema = z.object({
+  permissionLevel: z.enum(['read', 'admin'])
+})
 
 interface RepositoryResult {
   name: string;
   success: boolean;
   errors?: string;
   collaboratorsUpdated?: number;
+  rateLimit?: {
+    remaining: number;
+    reset: number;
+  };
 }
+
+// Sleep function for rate limiting
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -39,21 +48,39 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     )
 
-    // Get request body
-    const { permissionLevel } = await req.json() as RequestBody
-    
-    if (permissionLevel !== 'read' && permissionLevel !== 'admin') {
+    // Get and validate request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      const parsedBody = RequestSchema.safeParse(requestBody);
+      
+      if (!parsedBody.success) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Bad Request', 
+            message: 'Permission level must be "read" or "admin"',
+            details: parsedBody.error.format()
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      // Extract validated data
+      const { permissionLevel } = parsedBody.data;
+    } catch (error) {
       return new Response(
-        JSON.stringify({ error: 'Bad Request', message: 'Permission level must be "read" or "admin"' }),
+        JSON.stringify({ error: 'Bad Request', message: 'Invalid JSON payload', details: error.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
+    const { permissionLevel } = requestBody;
+    
     // Get user id from JWT
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    if (!user) {
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', message: 'User not found' }),
+        JSON.stringify({ error: 'Unauthorized', message: 'User not found', details: authError?.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -67,121 +94,298 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .single()
       
-    if (configError || !config) {
+    if (configError || !config || !config.github_pat || !config.github_org) {
+      const reason = !config ? 'Configuration not found' : 
+                     !config.github_pat ? 'GitHub PAT missing' : 
+                     !config.github_org ? 'GitHub organization missing' : 
+                     configError?.message;
+                     
       return new Response(
-        JSON.stringify({ error: 'Not Found', message: 'GitHub configuration not found' }),
+        JSON.stringify({ error: 'Configuration Error', message: 'GitHub configuration incomplete', details: reason }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
     const { github_org, github_pat } = config
     
-    // Map permission level to GitHub API permission format
-    const githubPermission = permissionLevel === 'read' ? 'pull' : 'admin'
-    
-    // Fetch all repositories for the organization
-    const reposResponse = await fetch(`https://api.github.com/orgs/${github_org}/repos?per_page=100&type=public`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'Authorization': `token ${github_pat}`
+    // Test PAT validity by checking user info first
+    try {
+      const testResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `token ${github_pat}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (!testResponse.ok) {
+        const errorMessage = await testResponse.text();
+        console.error('GitHub PAT validation failed:', errorMessage);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'GitHub Authentication Error', 
+            message: 'GitHub token validation failed. Token may be expired or have insufficient permissions.',
+            details: errorMessage
+          }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
-    })
-    
-    if (!reposResponse.ok) {
-      const errorData = await reposResponse.text()
-      console.error(`Failed to fetch repos: ${errorData}`)
+      
+      // Check rate limit
+      const rateLimit = {
+        remaining: parseInt(testResponse.headers.get('x-ratelimit-remaining') || '5000'),
+        resetTime: parseInt(testResponse.headers.get('x-ratelimit-reset') || '0')
+      };
+      
+      if (rateLimit.remaining < 100) {
+        console.warn(`Low GitHub rate limit remaining: ${rateLimit.remaining}`);
+        // Continue but log the warning
+      }
+    } catch (error) {
+      console.error('Error validating GitHub PAT:', error);
       return new Response(
-        JSON.stringify({ error: 'GitHub API Error', message: 'Failed to fetch repositories', details: errorData }),
+        JSON.stringify({ error: 'GitHub API Error', message: 'Failed to validate GitHub token', details: error.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    const repos = await reposResponse.json()
+    // Map permission level to GitHub API permission format
+    const githubPermission = permissionLevel === 'read' ? 'pull' : 'admin'
     
-    // Process each repository
-    const results: RepositoryResult[] = []
-    let successCount = 0
-    let failureCount = 0
+    // Fetch all repositories for the organization with pagination support
+    let allRepos = [];
+    let page = 1;
+    let hasMorePages = true;
     
-    for (const repo of repos) {
+    while (hasMorePages) {
       try {
-        // Get repository collaborators
-        const collabResponse = await fetch(`https://api.github.com/repos/${github_org}/${repo.name}/collaborators?per_page=100`, {
+        const reposResponse = await fetch(`https://api.github.com/orgs/${github_org}/repos?per_page=100&page=${page}&type=public`, {
           headers: {
             'Accept': 'application/vnd.github.v3+json',
             'Authorization': `token ${github_pat}`
           }
-        })
+        });
         
-        if (!collabResponse.ok) {
-          throw new Error(`Failed to fetch collaborators: ${await collabResponse.text()}`)
+        if (!reposResponse.ok) {
+          throw new Error(`Failed to fetch repos (page ${page}): ${await reposResponse.text()}`);
         }
         
-        const collaborators = await collabResponse.json()
-        let collaboratorsUpdated = 0
+        const repos = await reposResponse.json();
+        
+        // Check if we received any repos
+        if (repos.length === 0) {
+          hasMorePages = false;
+        } else {
+          allRepos = [...allRepos, ...repos];
+          
+          // Check Link header for next page
+          const linkHeader = reposResponse.headers.get('Link');
+          hasMorePages = linkHeader ? linkHeader.includes('rel="next"') : false;
+          page++;
+          
+          // Check rate limit
+          const remaining = parseInt(reposResponse.headers.get('x-ratelimit-remaining') || '1000');
+          if (remaining < 20) {
+            console.warn(`Critical GitHub rate limit: ${remaining} requests remaining. Pausing.`);
+            // Calculate reset time and wait if needed
+            const resetTime = parseInt(reposResponse.headers.get('x-ratelimit-reset') || '0') * 1000;
+            const now = Date.now();
+            if (resetTime > now) {
+              const waitTime = resetTime - now + 5000; // Add 5s buffer
+              console.log(`Waiting ${waitTime/1000}s for rate limit reset`);
+              await sleep(waitTime);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching repositories page ${page}:`, error);
+        return new Response(
+          JSON.stringify({ error: 'GitHub API Error', message: `Failed to fetch repositories (page ${page})`, details: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+    
+    console.log(`Found ${allRepos.length} repositories for organization ${github_org}`);
+    
+    // Process each repository
+    const results: RepositoryResult[] = [];
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const repo of allRepos) {
+      try {
+        console.log(`Processing repository: ${repo.name}`);
+        
+        // Get repository collaborators with pagination
+        let allCollaborators = [];
+        let collabPage = 1;
+        let hasMoreCollabs = true;
+        
+        while (hasMoreCollabs) {
+          try {
+            const collabResponse = await fetch(`https://api.github.com/repos/${github_org}/${repo.name}/collaborators?per_page=100&page=${collabPage}`, {
+              headers: {
+                'Accept': 'application/vnd.github.v3+json',
+                'Authorization': `token ${github_pat}`
+              }
+            });
+            
+            // Check for rate limit information
+            const rateLimit = {
+              remaining: parseInt(collabResponse.headers.get('x-ratelimit-remaining') || '5000'),
+              reset: parseInt(collabResponse.headers.get('x-ratelimit-reset') || '0')
+            };
+            
+            if (!collabResponse.ok) {
+              if (collabResponse.status === 403 && rateLimit.remaining === 0) {
+                // Rate limited - wait and retry
+                const resetTime = rateLimit.reset * 1000;
+                const now = Date.now();
+                if (resetTime > now) {
+                  const waitTime = resetTime - now + 5000; // Add 5s buffer
+                  console.log(`Rate limited. Waiting ${waitTime/1000}s for reset`);
+                  await sleep(waitTime);
+                  continue; // Retry this page
+                }
+              }
+              
+              throw new Error(`Failed to fetch collaborators for ${repo.name} (page ${collabPage}): ${await collabResponse.text()}`);
+            }
+            
+            const collaborators = await collabResponse.json();
+            
+            // Check if we received any collaborators
+            if (collaborators.length === 0) {
+              hasMoreCollabs = false;
+            } else {
+              allCollaborators = [...allCollaborators, ...collaborators];
+              
+              // Check Link header for next page
+              const linkHeader = collabResponse.headers.get('Link');
+              hasMoreCollabs = linkHeader ? linkHeader.includes('rel="next"') : false;
+              collabPage++;
+              
+              // Add a small delay between requests to avoid abuse detection
+              await sleep(100);
+            }
+          } catch (error) {
+            throw new Error(`Error fetching collaborators page ${collabPage}: ${error.message}`);
+          }
+        }
+        
+        console.log(`Found ${allCollaborators.length} collaborators for ${repo.name}`);
+        let collaboratorsUpdated = 0;
+        let collaboratorErrors = [];
         
         // Update each collaborator's permission
-        for (const collaborator of collaborators) {
+        for (const collaborator of allCollaborators) {
           // Skip bot accounts (usually end with [bot])
           if (collaborator.login.endsWith('[bot]')) {
-            continue
+            continue;
           }
           
-          const updateResponse = await fetch(`https://api.github.com/repos/${github_org}/${repo.name}/collaborators/${collaborator.login}`, {
-            method: 'PUT',
-            headers: {
-              'Accept': 'application/vnd.github.v3+json',
-              'Authorization': `token ${github_pat}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ permission: githubPermission })
-          })
-          
-          if (updateResponse.ok) {
-            collaboratorsUpdated++
-          } else {
-            console.error(`Failed to update ${collaborator.login} on ${repo.name}: ${await updateResponse.text()}`)
+          try {
+            const updateResponse = await fetch(`https://api.github.com/repos/${github_org}/${repo.name}/collaborators/${collaborator.login}`, {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/vnd.github.v3+json',
+                'Authorization': `token ${github_pat}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ permission: githubPermission })
+            });
+            
+            // Check for rate limit information
+            const rateLimit = {
+              remaining: parseInt(updateResponse.headers.get('x-ratelimit-remaining') || '5000'),
+              reset: parseInt(updateResponse.headers.get('x-ratelimit-reset') || '0')
+            };
+            
+            if (!updateResponse.ok) {
+              if (updateResponse.status === 403 && rateLimit.remaining === 0) {
+                // Rate limited - wait and retry
+                const resetTime = rateLimit.reset * 1000;
+                const now = Date.now();
+                if (resetTime > now) {
+                  const waitTime = resetTime - now + 5000; // Add 5s buffer
+                  console.log(`Rate limited. Waiting ${waitTime/1000}s for reset`);
+                  await sleep(waitTime);
+                  // Retry this collaborator update
+                  continue;
+                }
+              }
+              
+              const errorText = await updateResponse.text();
+              throw new Error(`Failed to update ${collaborator.login}: ${errorText}`);
+            }
+            
+            collaboratorsUpdated++;
+            await sleep(100); // Small delay to avoid hitting rate limits too quickly
+          } catch (error) {
+            console.error(`Error updating ${collaborator.login} on ${repo.name}:`, error);
+            collaboratorErrors.push(`${collaborator.login}: ${error.message}`);
           }
         }
         
-        results.push({
+        // Add result for this repo
+        const repoResult: RepositoryResult = {
           name: repo.name,
-          success: true,
+          success: collaboratorErrors.length === 0,
           collaboratorsUpdated
-        })
+        };
         
-        successCount++
+        if (collaboratorErrors.length > 0) {
+          repoResult.errors = collaboratorErrors.join('; ');
+        }
         
+        results.push(repoResult);
+        
+        if (collaboratorErrors.length === 0) {
+          successCount++;
+        } else {
+          // Consider partial success if at least one collaborator was updated
+          if (collaboratorsUpdated > 0) {
+            successCount++;
+          } else {
+            failureCount++;
+          }
+        }
       } catch (error) {
-        console.error(`Error processing repo ${repo.name}:`, error)
+        console.error(`Error processing repo ${repo.name}:`, error);
         results.push({
           name: repo.name,
           success: false,
           errors: error.message
-        })
+        });
         
-        failureCount++
+        failureCount++;
       }
     }
     
     // Log the action in audit_logs
-    await supabaseClient.rpc('log_audit_event', {
-      p_user_id: user.id,
-      p_action: 'update_repository_permissions',
-      p_entity_type: 'repository',
-      p_entity_id: null,
-      p_details: { 
-        permission_level: permissionLevel,
-        repos_processed: repos.length,
-        success_count: successCount,
-        failure_count: failureCount
-      }
-    })
+    try {
+      await supabaseClient.rpc('log_audit_event', {
+        p_user_id: user.id,
+        p_action: 'update_repository_permissions',
+        p_entity_type: 'repository',
+        p_entity_id: null,
+        p_details: { 
+          permission_level: permissionLevel,
+          repos_processed: allRepos.length,
+          success_count: successCount,
+          failure_count: failureCount
+        }
+      });
+    } catch (auditError) {
+      console.error('Failed to log audit event:', auditError);
+      // Continue despite audit log failure
+    }
     
     return new Response(
       JSON.stringify({
         message: 'Repository permissions update completed',
-        totalRepos: repos.length,
+        totalRepos: allRepos.length,
         successCount,
         failureCount,
         results
@@ -190,7 +394,7 @@ Deno.serve(async (req) => {
     )
     
   } catch (error) {
-    console.error('Unhandled error:', error)
+    console.error('Unhandled error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
