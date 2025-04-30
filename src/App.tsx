@@ -50,13 +50,12 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/repositories" element={<Repositories />} />
                 <Route path="/repositories/:repoId" element={<RepositoryDetails />} />
-                <Route path="/settings" element={<Settings />}>
-                  <Route path="dashboard" element={<DashboardConfig />} />
-                  <Route path="leaderboard" element={<LeaderboardConfig />} />
-                  <Route path="tech-stacks" element={<TechStacksConfig />} />
-                  <Route path="repo-filter" element={<RepoFilterConfig />} />
-                  <Route path="repo-permissions" element={<RepoPermissionsConfig />} />
-                </Route>
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/dashboard" element={<DashboardConfig />} />
+                <Route path="/settings/leaderboard" element={<LeaderboardConfig />} />
+                <Route path="/settings/tech-stacks" element={<TechStacksConfig />} />
+                <Route path="/settings/repo-filter" element={<RepoFilterConfig />} />
+                <Route path="/settings/repo-permissions" element={<RepoPermissionsConfig />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
