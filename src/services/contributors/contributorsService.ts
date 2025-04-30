@@ -25,7 +25,7 @@ export async function fetchIndividualContributors(
   sortOrder: 'asc' | 'desc' = 'desc'
 ): Promise<GetIndividualContributorsResponse> {
   try {
-    // Use the new database RPC function
+    // Call the database RPC function with the correct parameters
     const { data, error } = await supabase
       .rpc('get_individual_contributors', {
         p_page: page,
@@ -46,32 +46,28 @@ export async function fetchIndividualContributors(
     // Extract hasMore from the first row's result
     const hasMore = data[0]?.has_more || false;
     
-    // Properly parse the repositories JSON
+    // Process the data to ensure all properties match our interface
     const contributors: IndividualContributor[] = data.map(item => {
-      // Ensure repositories is properly parsed as an array of objects
-      let repositories = [];
+      // JSONB data from Postgres comes as parsed objects already, no need to parse it again
+      // Just validate and transform if needed to match our expected structure
       
-      try {
-        if (typeof item.repositories === 'string') {
-          // If it's a string, try to parse it
-          repositories = JSON.parse(item.repositories);
-        } else if (Array.isArray(item.repositories)) {
-          // If it's already an array, use it directly
-          repositories = item.repositories;
-        } else if (typeof item.repositories === 'object' && item.repositories !== null) {
-          // If it's an object but not an array, convert it to an array
-          repositories = Object.values(item.repositories);
-        }
-      } catch (e) {
-        logger.error("Error parsing repositories data:", { error: e, rawData: item.repositories });
-        repositories = [];
-      }
+      // Default empty array if repositories is null
+      let repositories = item.repositories || [];
+      
+      // Ensure each repository has the expected structure
+      const typedRepositories = Array.isArray(repositories) 
+        ? repositories.map(repo => ({
+            id: String(repo.id || ''),
+            name: String(repo.name || ''),
+            contributions: Number(repo.contributions || 0)
+          }))
+        : [];
       
       return {
         login: item.login,
         avatar_url: item.avatar_url || '',
-        total_contributions: Number(item.total_contributions),
-        repositories: repositories as {id: string; name: string; contributions: number}[]
+        total_contributions: Number(item.total_contributions || 0),
+        repositories: typedRepositories
       };
     });
     
