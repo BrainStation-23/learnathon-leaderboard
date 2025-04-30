@@ -70,4 +70,4 @@ url = ""
 
 [functions]
 [functions.update-repository-permissions]
-verify_jwt = true
+verify_jwt = false

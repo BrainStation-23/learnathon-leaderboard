@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useConfig } from "@/context/ConfigContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -33,8 +33,21 @@ export default function RepoPermissionsConfig() {
   const [permissionResult, setPermissionResult] = useState<PermissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Debug logging for session and auth state
+  useEffect(() => {
+    if (session) {
+      logger.info("Auth session available", { 
+        hasUser: !!user,
+        hasAccessToken: !!session?.access_token,
+        expiresAt: session?.expires_at
+      });
+    } else {
+      logger.warn("No auth session available");
+    }
+  }, [user, session]);
+
   const updatePermissions = async (permissionLevel: PermissionLevel) => {
-    if (!user || !session || !isConfigured) {
+    if (!user || !session) {
       toast({
         title: "Not authenticated",
         description: "You must be logged in with a valid session to perform this action.",
@@ -60,10 +73,12 @@ export default function RepoPermissionsConfig() {
     try {
       logger.info("Calling update-repository-permissions function", { permissionLevel, userId: user.id });
       
-      // Log auth token details (not the actual token) for debugging 
-      console.log("Auth session validation:", {
+      // Detailed log of auth session state for debugging
+      logger.info("Auth session validation:", {
         hasAccessToken: !!session.access_token,
         userIdMatches: session.user.id === user.id,
+        tokenExpiry: new Date(session.expires_at! * 1000).toISOString(),
+        tokenExpiresIn: Math.floor((session.expires_at! * 1000 - Date.now()) / 1000) + " seconds"
       });
 
       const { data, error: functionError } = await supabase.functions.invoke("update-repository-permissions", {
