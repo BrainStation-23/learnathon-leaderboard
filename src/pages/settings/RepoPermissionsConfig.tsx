@@ -5,11 +5,12 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { AlertCircle, Check, Shield, ShieldOff, Loader2, Info } from "lucide-react";
+import { AlertCircle, Check, Shield, ShieldOff, Loader2, Info, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { logger } from "@/services/logService";
+import { Progress } from "@/components/ui/progress";
 
 type PermissionLevel = "read" | "admin";
 type PermissionResult = {
@@ -26,7 +27,22 @@ type PermissionResult = {
     collaboratorsUpdated?: number;
     collaboratorsSkipped?: number;
   }>;
+  batchInfo?: {
+    startIndex: number;
+    endIndex: number;
+    batchSize: number;
+    totalRepositories: number;
+    hasMoreBatches: boolean;
+    nextBatchStartIndex: number | null;
+  };
+  rateLimitInfo?: {
+    initialRemaining: number;
+    currentRemaining: number;
+  };
 };
+
+// Constants for batch processing
+const DEFAULT_BATCH_SIZE = 25;
 
 export default function RepoPermissionsConfig() {
   const { config, isConfigured } = useConfig();
@@ -35,6 +51,10 @@ export default function RepoPermissionsConfig() {
   const [isLoading, setIsLoading] = useState(false);
   const [permissionResult, setPermissionResult] = useState<PermissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentBatch, setCurrentBatch] = useState<number>(0);
+  const [batchProgress, setBatchProgress] = useState<number>(0);
+  const [isProcessingBatches, setIsProcessingBatches] = useState<boolean>(false);
+  const [processingPermissionLevel, setProcessingPermissionLevel] = useState<PermissionLevel | null>(null);
 
   // Debug logging for auth state
   useEffect(() => {
@@ -47,7 +67,7 @@ export default function RepoPermissionsConfig() {
     }
   }, [user]);
 
-  const updatePermissions = async (permissionLevel: PermissionLevel) => {
+  const updatePermissions = async (permissionLevel: PermissionLevel, startIndex = 0, continueBatch = false) => {
     if (!user) {
       toast({
         title: "Not authenticated",
@@ -58,19 +78,30 @@ export default function RepoPermissionsConfig() {
     }
 
     setIsLoading(true);
-    setError(null);
-    setPermissionResult(null);
+    
+    // Only reset state if we're starting a new operation
+    if (!continueBatch) {
+      setError(null);
+      setPermissionResult(null);
+      setCurrentBatch(0);
+      setBatchProgress(0);
+      setProcessingPermissionLevel(permissionLevel);
+    }
     
     try {
       logger.info("Calling update-repository-permissions function", { 
         permissionLevel, 
-        userId: user.id 
+        userId: user.id,
+        startIndex,
+        batchSize: DEFAULT_BATCH_SIZE 
       });
       
       const { data, error: functionError } = await supabase.functions.invoke("update-repository-permissions", {
         body: { 
           permissionLevel,
-          userId: user.id
+          userId: user.id,
+          startIndex,
+          batchSize: DEFAULT_BATCH_SIZE
         }
       });
       
@@ -81,12 +112,52 @@ export default function RepoPermissionsConfig() {
       
       logger.info("Function response:", data);
       setPermissionResult(data);
+
+      // Update batch progress
+      if (data.batchInfo) {
+        const { startIndex, endIndex, totalRepositories } = data.batchInfo;
+        const batchNum = Math.floor(startIndex / DEFAULT_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(totalRepositories / DEFAULT_BATCH_SIZE);
+        setCurrentBatch(batchNum);
+        setBatchProgress(((endIndex + 1) / totalRepositories) * 100);
       
-      toast({
-        title: "Permissions Updated",
-        description: `Successfully updated ${data.successCount} repositories with direct collaborators to ${permissionLevel} permissions.`,
-        variant: "default",
-      });
+        // If we have more batches and are in continuous mode, process the next batch
+        if (data.batchInfo.hasMoreBatches && isProcessingBatches) {
+          // Show an interim toast with progress
+          toast({
+            title: "Batch Processing",
+            description: `Completed batch ${batchNum} of ${totalBatches}. Processing next batch...`,
+            variant: "default",
+          });
+          
+          // Small delay to let the UI update
+          setTimeout(() => {
+            updatePermissions(permissionLevel, data.batchInfo.nextBatchStartIndex, true);
+          }, 1000);
+        } else if (isProcessingBatches) {
+          // We've completed all batches
+          setIsProcessingBatches(false);
+          toast({
+            title: "All Batches Completed",
+            description: `Successfully processed all ${totalBatches} batches of repositories.`,
+            variant: "default",
+          });
+        } else {
+          // Single batch completed
+          toast({
+            title: "Permissions Updated",
+            description: `Successfully updated ${data.successCount} repositories with direct collaborators to ${permissionLevel} permissions.`,
+            variant: "default",
+          });
+        }
+      } else {
+        // Legacy response without batch info
+        toast({
+          title: "Permissions Updated",
+          description: `Successfully updated ${data.successCount} repositories with direct collaborators to ${permissionLevel} permissions.`,
+          variant: "default",
+        });
+      }
     } catch (err: any) {
       logger.error("Error updating permissions:", err);
       setError(err.message || "Failed to update permissions");
@@ -96,9 +167,29 @@ export default function RepoPermissionsConfig() {
         description: "Failed to update repository permissions. Please try again.",
         variant: "destructive",
       });
+      
+      // Stop batch processing if there's an error
+      setIsProcessingBatches(false);
     } finally {
-      setIsLoading(false);
+      setIsLoading(!isProcessingBatches);
     }
+  };
+
+  // Start batch processing all repositories
+  const processBatchPermissions = (permissionLevel: PermissionLevel) => {
+    setIsProcessingBatches(true);
+    updatePermissions(permissionLevel, 0, false);
+  };
+
+  // Cancel ongoing batch processing
+  const cancelBatchProcessing = () => {
+    setIsProcessingBatches(false);
+    setIsLoading(false);
+    toast({
+      title: "Processing Cancelled",
+      description: "Batch processing has been cancelled.",
+      variant: "default",
+    });
   };
 
   return (
@@ -116,6 +207,12 @@ export default function RepoPermissionsConfig() {
         <AlertDescription className="text-amber-700">
           This will update permissions only for <strong>direct collaborators</strong> on your repositories.
           Team members and organization-wide collaborators won't be affected.
+          {permissionResult?.totalRepos && permissionResult.totalRepos > 50 && (
+            <div className="mt-2">
+              <strong>Note:</strong> You have {permissionResult.totalRepos} repositories. Consider using batch processing
+              for large organizations to avoid rate limits.
+            </div>
+          )}
         </AlertDescription>
       </Alert>
 
@@ -127,6 +224,34 @@ export default function RepoPermissionsConfig() {
             You need to configure your GitHub organization and personal access token first.
           </AlertDescription>
         </Alert>
+      )}
+
+      {isProcessingBatches && (
+        <Card className="mb-4 border border-blue-200 bg-blue-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-xl text-blue-800">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              Processing in Batches
+            </CardTitle>
+            <CardDescription className="text-blue-700">
+              Processing batch {currentBatch} for {processingPermissionLevel} permissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress</span>
+                <span>{Math.round(batchProgress)}%</span>
+              </div>
+              <Progress value={batchProgress} className="h-2" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="destructive" size="sm" onClick={cancelBatchProcessing}>
+              Cancel Processing
+            </Button>
+          </CardFooter>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -147,15 +272,15 @@ export default function RepoPermissionsConfig() {
               but cannot directly push to repositories.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col sm:flex-row gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={!isConfigured || isLoading || !user}
-                  className="w-full"
+                  disabled={!isConfigured || isLoading || !user || isProcessingBatches}
+                  className="w-full sm:w-auto"
                 >
-                  {isLoading ? (
+                  {isLoading && processingPermissionLevel === "read" && !isProcessingBatches ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <ShieldOff className="h-4 w-4 mr-2" />
@@ -182,6 +307,37 @@ export default function RepoPermissionsConfig() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="secondary"
+                  disabled={!isConfigured || isLoading || !user || isProcessingBatches}
+                  className="w-full sm:w-auto"
+                >
+                  <ShieldOff className="h-4 w-4 mr-2" />
+                  Process in Batches
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Process In Batches</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    For large organizations with many repositories, processing in batches helps avoid GitHub API rate limits.
+                    This will process repositories in groups of {DEFAULT_BATCH_SIZE} until all are complete.
+                    This may take several minutes to complete.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => processBatchPermissions("read")}
+                  >
+                    Start Batch Processing
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardFooter>
         </Card>
 
@@ -202,15 +358,15 @@ export default function RepoPermissionsConfig() {
               configure repository options.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col sm:flex-row gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={!isConfigured || isLoading || !user}
-                  className="w-full"
+                  disabled={!isConfigured || isLoading || !user || isProcessingBatches}
+                  className="w-full sm:w-auto"
                 >
-                  {isLoading ? (
+                  {isLoading && processingPermissionLevel === "admin" && !isProcessingBatches ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Shield className="h-4 w-4 mr-2" />
@@ -237,6 +393,37 @@ export default function RepoPermissionsConfig() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="secondary"
+                  disabled={!isConfigured || isLoading || !user || isProcessingBatches}
+                  className="w-full sm:w-auto"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Process in Batches
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Process In Batches</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    For large organizations with many repositories, processing in batches helps avoid GitHub API rate limits.
+                    This will process repositories in groups of {DEFAULT_BATCH_SIZE} until all are complete.
+                    This may take several minutes to complete.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => processBatchPermissions("admin")}
+                  >
+                    Start Batch Processing
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardFooter>
         </Card>
       </div>
@@ -258,11 +445,17 @@ export default function RepoPermissionsConfig() {
             </CardTitle>
             <CardDescription>
               Summary of permission changes
+              {permissionResult.batchInfo && (
+                <span className="ml-2 text-sm text-muted-foreground">
+                  (Batch {Math.floor(permissionResult.batchInfo.startIndex / DEFAULT_BATCH_SIZE) + 1} 
+                  of {Math.ceil(permissionResult.batchInfo.totalRepositories / DEFAULT_BATCH_SIZE)})
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-4 bg-muted rounded-lg text-center">
                   <p className="text-2xl font-bold">{permissionResult.totalRepos}</p>
                   <p className="text-xs text-muted-foreground">Total repositories</p>
@@ -281,6 +474,17 @@ export default function RepoPermissionsConfig() {
                 </div>
               </div>
 
+              {permissionResult.rateLimitInfo && (
+                <Alert className="bg-gray-50 border-gray-200">
+                  <Info className="h-4 w-4 text-gray-600" />
+                  <AlertTitle className="text-gray-800">GitHub API Rate Limit</AlertTitle>
+                  <AlertDescription className="text-gray-700">
+                    Started with {permissionResult.rateLimitInfo.initialRemaining} API calls remaining. 
+                    Now have {permissionResult.rateLimitInfo.currentRemaining} API calls remaining.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {permissionResult.reposWithoutDirectCollaborators > 0 && (
                 <Alert className="bg-gray-50 border-gray-200">
                   <Info className="h-4 w-4 text-gray-600" />
@@ -292,32 +496,54 @@ export default function RepoPermissionsConfig() {
                 </Alert>
               )}
 
+              {permissionResult.batchInfo && permissionResult.batchInfo.hasMoreBatches && !isProcessingBatches && (
+                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">More Repositories to Process</h4>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Processed repositories {permissionResult.batchInfo.startIndex + 1} to {permissionResult.batchInfo.endIndex + 1} of {permissionResult.batchInfo.totalRepositories}.
+                    There are more repositories to process.
+                  </p>
+                  <Button
+                    onClick={() => updatePermissions(processingPermissionLevel!, permissionResult.batchInfo!.nextBatchStartIndex!, true)}
+                    variant="outline"
+                    className="bg-white"
+                  >
+                    Process Next Batch
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
               {permissionResult.failureCount > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Failed Repositories:</h4>
-                  <ul className="text-sm space-y-1">
-                    {permissionResult.results
-                      .filter(r => !r.success)
-                      .map(repo => (
-                        <li key={repo.name} className="text-red-600">
-                          {repo.name}: {repo.errors}
-                        </li>
-                      ))}
-                  </ul>
+                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto bg-red-50">
+                    <ul className="text-sm space-y-1">
+                      {permissionResult.results
+                        .filter(r => !r.success)
+                        .map(repo => (
+                          <li key={repo.name} className="text-red-600">
+                            {repo.name}: {repo.errors}
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
                 </div>
               )}
 
               <div className="mt-4">
                 <h4 className="text-sm font-medium mb-2">Collaborator Details:</h4>
-                <ul className="text-sm space-y-1">
-                  {permissionResult.results
-                    .filter(r => r.collaboratorsUpdated && r.collaboratorsUpdated > 0)
-                    .map(repo => (
-                      <li key={repo.name} className="text-green-600">
-                        {repo.name}: {repo.collaboratorsUpdated} updated, {repo.collaboratorsSkipped} skipped
-                      </li>
-                    ))}
-                </ul>
+                <div className="border rounded-lg p-3 max-h-60 overflow-y-auto bg-gray-50">
+                  <ul className="text-sm space-y-1">
+                    {permissionResult.results
+                      .filter(r => r.collaboratorsUpdated && r.collaboratorsUpdated > 0)
+                      .map(repo => (
+                        <li key={repo.name} className="text-green-600">
+                          {repo.name}: {repo.collaboratorsUpdated} updated, {repo.collaboratorsSkipped} skipped
+                        </li>
+                      ))}
+                  </ul>
+                </div>
               </div>
             </div>
           </CardContent>

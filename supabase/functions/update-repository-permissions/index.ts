@@ -10,7 +10,9 @@ const corsHeaders = {
 // Schema validation for request body
 const RequestSchema = z.object({
   permissionLevel: z.enum(['read', 'admin']),
-  userId: z.string().uuid()  // Require the userId to be passed from the frontend
+  userId: z.string().uuid(),  // Require the userId to be passed from the frontend
+  batchSize: z.number().min(1).max(100).optional(),
+  startIndex: z.number().min(0).optional(),
 })
 
 interface RepositoryResult {
@@ -18,22 +20,39 @@ interface RepositoryResult {
   success: boolean;
   errors?: string;
   collaboratorsUpdated?: number;
-  collaboratorsSkipped?: number; // Added for tracking skipped collaborators
+  collaboratorsSkipped?: number;
   rateLimit?: {
     remaining: number;
-    reset: number;
+    resetTime: number;
   };
 }
 
 // Sleep function for rate limiting
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Format date for logging
+const formatDate = () => {
+  return new Date().toISOString();
+};
+
+// Log with timestamp and level
+const log = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
+  const timestamp = formatDate();
+  const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+  
+  if (data) {
+    console.log(logMessage, data);
+  } else {
+    console.log(logMessage);
+  }
+};
+
 Deno.serve(async (req) => {
-  console.log("Update repository permissions function called");
+  log('info', "Update repository permissions function called");
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log("Handling CORS preflight request");
+    log('info', "Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
   
@@ -42,11 +61,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
-    console.log(`SUPABASE_URL defined: ${!!supabaseUrl}`);
-    console.log(`SUPABASE_SERVICE_ROLE_KEY defined: ${!!supabaseServiceRole}`);
+    log('info', `SUPABASE_URL defined: ${!!supabaseUrl}, SUPABASE_SERVICE_ROLE_KEY defined: ${!!supabaseServiceRole}`);
     
     if (!supabaseUrl || !supabaseServiceRole) {
-      console.error("Missing Supabase environment variables");
+      log('error', "Missing Supabase environment variables");
       return new Response(
         JSON.stringify({ error: 'Server Configuration Error', message: 'Missing required environment variables' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -60,12 +78,12 @@ Deno.serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
-      console.log("Request body:", JSON.stringify(requestBody));
+      log('info', "Request body received", requestBody);
       
       const parsedBody = RequestSchema.safeParse(requestBody);
       
       if (!parsedBody.success) {
-        console.error("Invalid request body:", parsedBody.error.format());
+        log('error', "Invalid request body", parsedBody.error.format());
         return new Response(
           JSON.stringify({ 
             error: 'Bad Request', 
@@ -76,24 +94,29 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Extract validated data
-      const { permissionLevel, userId } = parsedBody.data;
+      // Extract validated data with defaults for batch processing
+      const { 
+        permissionLevel, 
+        userId,
+        batchSize = 100,  // Default batch size
+        startIndex = 0    // Default start index
+      } = parsedBody.data;
       
       // Use the service role to get the user data
       const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
       
       if (userError || !userData) {
-        console.error("Error fetching user:", userError);
+        log('error', "Error fetching user", userError);
         return new Response(
           JSON.stringify({ error: 'User Error', message: 'Could not validate user', details: userError?.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      console.log(`User ${userId} requested permission change to ${permissionLevel}`);
+      log('info', `User ${userId} requested permission change to ${permissionLevel}`);
       
       // Get user's GitHub configuration
-      console.log("Fetching GitHub configuration for user:", userId);
+      log('info', "Fetching GitHub configuration for user:", userId);
       const { data: config, error: configError } = await supabaseAdmin
         .from('configurations')
         .select('github_org, github_pat')
@@ -101,9 +124,9 @@ Deno.serve(async (req) => {
         .single();
         
       if (configError) {
-        console.error("Configuration fetch error:", configError);
+        log('error', "Configuration fetch error:", configError);
       } else {
-        console.log("Config fetched:", {
+        log('info', "Config fetched", {
           hasGithubOrg: !!config?.github_org,
           hasGithubPat: !!config?.github_pat
         });
@@ -115,7 +138,7 @@ Deno.serve(async (req) => {
                        !config.github_org ? 'GitHub organization missing' : 
                        configError?.message;
         
-        console.error("Configuration error:", reason);             
+        log('error', "Configuration error", { reason });             
         return new Response(
           JSON.stringify({ error: 'Configuration Error', message: 'GitHub configuration incomplete', details: reason }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -125,8 +148,13 @@ Deno.serve(async (req) => {
       const { github_org, github_pat } = config;
       
       // Test PAT validity by checking user info first
+      let initialRateLimit = {
+        remaining: 5000,
+        resetTime: 0
+      };
+      
       try {
-        console.log("Testing GitHub PAT validity");
+        log('info', "Testing GitHub PAT validity");
         const testResponse = await fetch('https://api.github.com/user', {
           headers: {
             'Authorization': `token ${github_pat}`,
@@ -134,11 +162,19 @@ Deno.serve(async (req) => {
           }
         });
         
-        console.log("GitHub PAT test response status:", testResponse.status);
+        log('info', "GitHub PAT test response status:", testResponse.status);
+        
+        // Save initial rate limit information
+        initialRateLimit = {
+          remaining: parseInt(testResponse.headers.get('x-ratelimit-remaining') || '5000'),
+          resetTime: parseInt(testResponse.headers.get('x-ratelimit-reset') || '0')
+        };
+        
+        log('info', "Initial GitHub rate limits", initialRateLimit);
         
         if (!testResponse.ok) {
           const errorMessage = await testResponse.text();
-          console.error('GitHub PAT validation failed:', errorMessage);
+          log('error', 'GitHub PAT validation failed', errorMessage);
           
           return new Response(
             JSON.stringify({ 
@@ -150,20 +186,28 @@ Deno.serve(async (req) => {
           );
         }
         
-        // Check rate limit
-        const rateLimit = {
-          remaining: parseInt(testResponse.headers.get('x-ratelimit-remaining') || '5000'),
-          resetTime: parseInt(testResponse.headers.get('x-ratelimit-reset') || '0')
-        };
-        
-        console.log("GitHub rate limits:", rateLimit);
-        
-        if (rateLimit.remaining < 100) {
-          console.warn(`Low GitHub rate limit remaining: ${rateLimit.remaining}`);
-          // Continue but log the warning
+        // Check if rate limit is critically low
+        if (initialRateLimit.remaining < 100) {
+          log('warn', `Low GitHub rate limit remaining: ${initialRateLimit.remaining}`);
+          
+          // Check if we're below the threshold for safe operation
+          if (initialRateLimit.remaining < 50) {
+            const resetDate = new Date(initialRateLimit.resetTime * 1000);
+            return new Response(
+              JSON.stringify({ 
+                error: 'Rate Limit Error', 
+                message: `GitHub API rate limit too low (${initialRateLimit.remaining}). Please try again after ${resetDate.toISOString()}`,
+                details: {
+                  resetTime: initialRateLimit.resetTime,
+                  resetDate: resetDate.toISOString()
+                }
+              }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
         }
       } catch (error) {
-        console.error('Error validating GitHub PAT:', error);
+        log('error', 'Error validating GitHub PAT', error);
         return new Response(
           JSON.stringify({ error: 'GitHub API Error', message: 'Failed to validate GitHub token', details: error.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -178,10 +222,20 @@ Deno.serve(async (req) => {
       let page = 1;
       let hasMorePages = true;
       
-      console.log(`Fetching repositories for organization ${github_org}`);
+      log('info', `Fetching repositories for organization ${github_org}`);
+      
+      // Estimate API calls needed - for planning purposes
+      // We'll need 1 call per 100 repos, plus 2 calls per repo on average
+      const estimatedCallsNeeded = Math.ceil(180 / 100) + (180 * 2);
+      log('info', `Estimated API calls needed: ~${estimatedCallsNeeded} (with 180 repos)`, { 
+        initialRateRemaining: initialRateLimit.remaining
+      });
       
       while (hasMorePages) {
         try {
+          log('info', `Fetching repositories page ${page}`);
+          const requestStartTime = Date.now();
+          
           const reposResponse = await fetch(`https://api.github.com/orgs/${github_org}/repos?per_page=100&page=${page}&type=public`, {
             headers: {
               'Accept': 'application/vnd.github.v3+json',
@@ -189,16 +243,30 @@ Deno.serve(async (req) => {
             }
           });
           
+          const requestDuration = Date.now() - requestStartTime;
+          
+          // Capture rate limit information
+          const rateLimit = {
+            remaining: parseInt(reposResponse.headers.get('x-ratelimit-remaining') || '5000'),
+            limit: parseInt(reposResponse.headers.get('x-ratelimit-limit') || '5000'),
+            resetTime: parseInt(reposResponse.headers.get('x-ratelimit-reset') || '0')
+          };
+          
+          log('info', `Repo fetch page ${page} completed in ${requestDuration}ms, rate limit: ${rateLimit.remaining}/${rateLimit.limit}`);
+          
           if (!reposResponse.ok) {
-            throw new Error(`Failed to fetch repos (page ${page}): ${await reposResponse.text()}`);
+            const errorText = await reposResponse.text();
+            throw new Error(`Failed to fetch repos (page ${page}, status ${reposResponse.status}): ${errorText}`);
           }
           
           const repos = await reposResponse.json();
           
           // Check if we received any repos
           if (repos.length === 0) {
+            log('info', `No more repositories found on page ${page}`);
             hasMorePages = false;
           } else {
+            log('info', `Retrieved ${repos.length} repositories on page ${page}`);
             allRepos = [...allRepos, ...repos];
             
             // Check Link header for next page
@@ -206,22 +274,24 @@ Deno.serve(async (req) => {
             hasMorePages = linkHeader ? linkHeader.includes('rel="next"') : false;
             page++;
             
-            // Check rate limit
-            const remaining = parseInt(reposResponse.headers.get('x-ratelimit-remaining') || '1000');
-            if (remaining < 20) {
-              console.warn(`Critical GitHub rate limit: ${remaining} requests remaining. Pausing.`);
-              // Calculate reset time and wait if needed
-              const resetTime = parseInt(reposResponse.headers.get('x-ratelimit-reset') || '0') * 1000;
+            // Check rate limit and wait if needed
+            if (rateLimit.remaining < 50) {
+              const resetTime = rateLimit.resetTime * 1000;
               const now = Date.now();
               if (resetTime > now) {
                 const waitTime = resetTime - now + 5000; // Add 5s buffer
-                console.log(`Waiting ${waitTime/1000}s for rate limit reset`);
+                log('warn', `Critical GitHub rate limit: ${rateLimit.remaining} requests remaining. Waiting ${waitTime/1000}s for rate limit reset`);
+                // Wait for rate limit to reset
                 await sleep(waitTime);
               }
+            } else if (rateLimit.remaining < 100) {
+              // Add small delay to conserve rate limit
+              log('warn', `Low GitHub rate limit: ${rateLimit.remaining} - adding delay between requests`);
+              await sleep(1000);
             }
           }
         } catch (error) {
-          console.error(`Error fetching repositories page ${page}:`, error);
+          log('error', `Error fetching repositories page ${page}:`, error);
           return new Response(
             JSON.stringify({ error: 'GitHub API Error', message: `Failed to fetch repositories (page ${page})`, details: error.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -229,18 +299,27 @@ Deno.serve(async (req) => {
         }
       }
       
-      console.log(`Found ${allRepos.length} repositories for organization ${github_org}`);
+      log('info', `Found ${allRepos.length} repositories for organization ${github_org}`);
       
-      // Process each repository
+      // Apply batching if requested
+      const totalRepositories = allRepos.length;
+      const endIndex = Math.min(startIndex + batchSize, totalRepositories);
+      
+      // Slice the array to get just the requested batch
+      const batchRepos = allRepos.slice(startIndex, endIndex);
+      
+      log('info', `Processing batch of repositories: ${startIndex} to ${endIndex - 1} of ${totalRepositories} total repositories`);
+      
+      // Process each repository in the batch
       const results: RepositoryResult[] = [];
       let successCount = 0;
       let failureCount = 0;
       let reposWithDirectCollaborators = 0;
       let reposWithoutDirectCollaborators = 0;
       
-      for (const repo of allRepos) {
+      for (const repo of batchRepos) {
         try {
-          console.log(`Processing repository: ${repo.name}`);
+          log('info', `Processing repository: ${repo.name} [${batchRepos.indexOf(repo) + 1}/${batchRepos.length}]`);
           
           // Get ONLY direct repository collaborators with pagination
           // Using affiliation=direct to filter for direct collaborators only
@@ -250,6 +329,9 @@ Deno.serve(async (req) => {
           
           while (hasMoreCollabs) {
             try {
+              log('info', `Fetching collaborators for ${repo.name}, page ${collabPage}`);
+              const collabRequestStartTime = Date.now();
+              
               const collabResponse = await fetch(
                 `https://api.github.com/repos/${github_org}/${repo.name}/collaborators?per_page=100&page=${collabPage}&affiliation=direct`, 
                 {
@@ -260,11 +342,16 @@ Deno.serve(async (req) => {
                 }
               );
               
+              const collabRequestDuration = Date.now() - collabRequestStartTime;
+              
               // Check for rate limit information
               const rateLimit = {
                 remaining: parseInt(collabResponse.headers.get('x-ratelimit-remaining') || '5000'),
+                limit: parseInt(collabResponse.headers.get('x-ratelimit-limit') || '5000'),
                 reset: parseInt(collabResponse.headers.get('x-ratelimit-reset') || '0')
               };
+              
+              log('info', `Collaborator fetch for ${repo.name} page ${collabPage} completed in ${collabRequestDuration}ms, rate limit: ${rateLimit.remaining}/${rateLimit.limit}`);
               
               if (!collabResponse.ok) {
                 if (collabResponse.status === 403 && rateLimit.remaining === 0) {
@@ -273,21 +360,30 @@ Deno.serve(async (req) => {
                   const now = Date.now();
                   if (resetTime > now) {
                     const waitTime = resetTime - now + 5000; // Add 5s buffer
-                    console.log(`Rate limited. Waiting ${waitTime/1000}s for reset`);
+                    log('warn', `Rate limited when fetching collaborators. Waiting ${waitTime/1000}s for reset`);
                     await sleep(waitTime);
                     continue; // Retry this page
                   }
                 }
                 
-                throw new Error(`Failed to fetch direct collaborators for ${repo.name} (page ${collabPage}): ${await collabResponse.text()}`);
+                if (collabResponse.status === 404) {
+                  // Repository may have been deleted or renamed
+                  log('warn', `Repository not found: ${repo.name}. It may have been deleted or renamed.`);
+                  throw new Error(`Repository not found: ${repo.name}. It may have been deleted or renamed.`);
+                }
+                
+                const errorText = await collabResponse.text();
+                throw new Error(`Failed to fetch direct collaborators for ${repo.name} (page ${collabPage}, status ${collabResponse.status}): ${errorText}`);
               }
               
               const collaborators = await collabResponse.json();
               
               // Check if we received any collaborators
               if (collaborators.length === 0) {
+                log('info', `No more collaborators found for ${repo.name} on page ${collabPage}`);
                 hasMoreCollabs = false;
               } else {
+                log('info', `Found ${collaborators.length} collaborators for ${repo.name} on page ${collabPage}`);
                 directCollaborators = [...directCollaborators, ...collaborators];
                 
                 // Check Link header for next page
@@ -296,18 +392,23 @@ Deno.serve(async (req) => {
                 collabPage++;
                 
                 // Add a small delay between requests to avoid abuse detection
-                await sleep(100);
+                if (rateLimit.remaining < 100) {
+                  await sleep(500); 
+                } else {
+                  await sleep(100);
+                }
               }
             } catch (error) {
-              throw new Error(`Error fetching direct collaborators page ${collabPage}: ${error.message}`);
+              log('error', `Error fetching direct collaborators for ${repo.name} page ${collabPage}`, error);
+              throw new Error(`Error fetching direct collaborators for ${repo.name} page ${collabPage}: ${error.message}`);
             }
           }
           
-          console.log(`Found ${directCollaborators.length} direct collaborators for ${repo.name}`);
+          log('info', `Found ${directCollaborators.length} direct collaborators for ${repo.name}`);
           
           // If no direct collaborators, continue to next repo and don't count it as a failure
           if (directCollaborators.length === 0) {
-            console.log(`No direct collaborators found for ${repo.name}, skipping`);
+            log('info', `No direct collaborators found for ${repo.name}, skipping`);
             reposWithoutDirectCollaborators++;
             results.push({
               name: repo.name,
@@ -328,12 +429,15 @@ Deno.serve(async (req) => {
           for (const collaborator of directCollaborators) {
             // Skip bot accounts (usually end with [bot])
             if (collaborator.login.endsWith('[bot]')) {
-              console.log(`Skipping bot account: ${collaborator.login}`);
+              log('info', `Skipping bot account: ${collaborator.login} in ${repo.name}`);
               collaboratorsSkipped++;
               continue;
             }
             
             try {
+              log('info', `Updating permission for ${collaborator.login} in ${repo.name} to ${githubPermission}`);
+              const updateStartTime = Date.now();
+              
               const updateResponse = await fetch(`https://api.github.com/repos/${github_org}/${repo.name}/collaborators/${collaborator.login}`, {
                 method: 'PUT',
                 headers: {
@@ -344,11 +448,16 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({ permission: githubPermission })
               });
               
+              const updateDuration = Date.now() - updateStartTime;
+              
               // Check for rate limit information
               const rateLimit = {
                 remaining: parseInt(updateResponse.headers.get('x-ratelimit-remaining') || '5000'),
+                limit: parseInt(updateResponse.headers.get('x-ratelimit-limit') || '5000'),
                 reset: parseInt(updateResponse.headers.get('x-ratelimit-reset') || '0')
               };
+              
+              log('info', `Permission update for ${collaborator.login} in ${repo.name} completed in ${updateDuration}ms, status: ${updateResponse.status}, rate limit: ${rateLimit.remaining}/${rateLimit.limit}`);
               
               if (!updateResponse.ok) {
                 if (updateResponse.status === 403 && rateLimit.remaining === 0) {
@@ -357,7 +466,7 @@ Deno.serve(async (req) => {
                   const now = Date.now();
                   if (resetTime > now) {
                     const waitTime = resetTime - now + 5000; // Add 5s buffer
-                    console.log(`Rate limited. Waiting ${waitTime/1000}s for reset`);
+                    log('warn', `Rate limited during permission update. Waiting ${waitTime/1000}s for reset`);
                     await sleep(waitTime);
                     // Retry this collaborator update
                     continue;
@@ -365,14 +474,22 @@ Deno.serve(async (req) => {
                 }
                 
                 const errorText = await updateResponse.text();
-                throw new Error(`Failed to update ${collaborator.login}: ${errorText}`);
+                throw new Error(`Failed to update ${collaborator.login} (status ${updateResponse.status}): ${errorText}`);
               }
               
-              console.log(`Successfully updated ${collaborator.login} to ${githubPermission} permission on ${repo.name}`);
+              log('info', `Successfully updated ${collaborator.login} to ${githubPermission} permission on ${repo.name}`);
               collaboratorsUpdated++;
-              await sleep(100); // Small delay to avoid hitting rate limits too quickly
+              
+              // Add delay based on rate limit
+              if (rateLimit.remaining < 50) {
+                await sleep(500); // Slow down significantly if rate limit is getting low
+              } else if (rateLimit.remaining < 100) {
+                await sleep(200); // Moderate delay for lower rate limits
+              } else {
+                await sleep(100); // Small delay for normal operation
+              }
             } catch (error) {
-              console.error(`Error updating ${collaborator.login} on ${repo.name}:`, error);
+              log('error', `Error updating ${collaborator.login} on ${repo.name}:`, error);
               collaboratorErrors.push(`${collaborator.login}: ${error.message}`);
               collaboratorsSkipped++;
             }
@@ -403,7 +520,7 @@ Deno.serve(async (req) => {
             }
           }
         } catch (error) {
-          console.error(`Error processing repo ${repo.name}:`, error);
+          log('error', `Error processing repo ${repo.name}:`, error);
           results.push({
             name: repo.name,
             success: false,
@@ -425,39 +542,70 @@ Deno.serve(async (req) => {
           p_entity_id: null,
           p_details: { 
             permission_level: permissionLevel,
-            repos_processed: allRepos.length,
+            repos_processed: batchRepos.length,
             repos_with_direct_collaborators: reposWithDirectCollaborators,
             repos_without_direct_collaborators: reposWithoutDirectCollaborators,
             success_count: successCount,
-            failure_count: failureCount
+            failure_count: failureCount,
+            batch_info: {
+              startIndex,
+              endIndex: endIndex - 1,
+              batchSize,
+              totalRepositories
+            }
           }
         });
+        log('info', 'Successfully logged audit event');
       } catch (auditError) {
-        console.error('Failed to log audit event:', auditError);
+        log('error', 'Failed to log audit event:', auditError);
         // Continue despite audit log failure
       }
       
+      // Create response with pagination info
+      const responseBody = {
+        message: 'Repository permissions update completed',
+        totalRepos: allRepos.length,
+        reposWithDirectCollaborators,
+        reposWithoutDirectCollaborators,
+        successCount,
+        failureCount,
+        results,
+        batchInfo: {
+          startIndex,
+          endIndex: endIndex - 1,
+          batchSize,
+          totalRepositories,
+          hasMoreBatches: endIndex < totalRepositories,
+          nextBatchStartIndex: endIndex < totalRepositories ? endIndex : null
+        },
+        rateLimitInfo: {
+          initialRemaining: initialRateLimit.remaining,
+          // We'll get the current remaining from the last API call, or default to the initial value
+          currentRemaining: results.length > 0 && results[results.length - 1].rateLimit ? 
+                           results[results.length - 1].rateLimit.remaining : 
+                           initialRateLimit.remaining
+        }
+      };
+      
+      log('info', 'Function completed successfully', { 
+        reposProcessed: batchRepos.length,
+        successCount,
+        failureCount
+      });
+      
       return new Response(
-        JSON.stringify({
-          message: 'Repository permissions update completed',
-          totalRepos: allRepos.length,
-          reposWithDirectCollaborators,
-          reposWithoutDirectCollaborators,
-          successCount,
-          failureCount,
-          results
-        }),
+        JSON.stringify(responseBody),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
-      console.error("Error parsing request or processing data:", error);
+      log('error', "Error parsing request or processing data:", error);
       return new Response(
         JSON.stringify({ error: 'Bad Request', message: 'Error processing request data', details: error.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
   } catch (error) {
-    console.error('Unhandled error:', error);
+    log('error', 'Unhandled error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

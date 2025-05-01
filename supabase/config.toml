@@ -36,3 +36,4 @@ enable_confirmations = true
 # Configure JWT verification for the update-repository-permissions function
 [functions.update-repository-permissions]
 verify_jwt = false
+
