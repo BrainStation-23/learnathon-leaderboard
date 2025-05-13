@@ -1,39 +1,4 @@
+project_id = "rbbarkslztgthdueblkl"
 
-# A string used to distinguish different Supabase projects on the same host. Defaults to the project ID.
-project_id = "gxfdqrussltcibptiltm"
-
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "storage"]
-extra_search_path = ["public", "extensions"]
-
-[db]
-port = 54322
-
-[db.pool]
-max_connections = 300
-
-[studio]
-port = 54323
-
-# Email testing server
-[inbucket]
-port = 54324
-
-[storage]
-enabled = true
-
-[auth]
-enabled = true
-site_url = "http://localhost:3000"
-
-[auth.email]
-enable_signup = true
-double_confirm_changes = true
-enable_confirmations = true
-
-# Configure JWT verification for the update-repository-permissions function
 [functions.update-repository-permissions]
 verify_jwt = false
-
