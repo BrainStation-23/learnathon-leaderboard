@@ -2,14 +2,17 @@
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import { RepositoryScoreCard } from "./RepositoryScoreCard";
 import { LeaderboardFilters } from "./LeaderboardFilters";
-import { Loader2, RefreshCcw, Filter } from "lucide-react";
+import { Loader2, RefreshCcw, Filter, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { LeaderboardItem } from "@/types/leaderboard";
+import { exportLeaderboardToCsv } from "@/utils/csvExport";
+import { useToast } from "@/hooks/use-toast";
 
 export function LeaderboardGrid() {
   const { loading, leaderboardData, error, refreshData } = useLeaderboardData();
   const [filteredData, setFilteredData] = useState<LeaderboardItem[]>([]);
+  const { toast } = useToast();
 
   // Set filtered data whenever leaderboard data changes
   useEffect(() => {
@@ -33,6 +36,23 @@ export function LeaderboardGrid() {
       });
     }
   }, [leaderboardData]);
+
+  const handleExportCsv = () => {
+    try {
+      exportLeaderboardToCsv(filteredData);
+      toast({
+        title: "Export successful",
+        description: "Leaderboard data has been exported to CSV",
+      });
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      toast({
+        title: "Export failed",
+        description: "Failed to export leaderboard data",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (loading && leaderboardData.length === 0) {
     return (
@@ -76,10 +96,21 @@ export function LeaderboardGrid() {
             Some repositories may be filtered out in settings
           </span>
         </div>
-        <Button variant="outline" size="sm" onClick={refreshData} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExportCsv}
+            disabled={loading || filteredData.length === 0}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={refreshData} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
+            Refresh
+          </Button>
+        </div>
       </div>
       
       {/* Add the filters component */}
