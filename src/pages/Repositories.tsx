@@ -9,6 +9,10 @@ import RepositoryControls from "@/components/dashboard/repositories/RepositoryCo
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
 import ErrorDisplay from "@/components/dashboard/ErrorDisplay";
 import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
+import { exportRepositoriesToCsv } from "@/utils/repositoryCsvExport";
+import { useToast } from "@/hooks/use-toast";
 
 const Repositories = () => {
   const [selectedRepo, setSelectedRepo] = useState<TeamDashboardData | null>(null);
@@ -24,6 +28,7 @@ const Repositories = () => {
     loadData,
     fetchData
   } = useRepositoryData();
+  const { toast } = useToast();
   
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,17 +84,45 @@ const Repositories = () => {
     });
   }, [dashboardData, searchTerm, securityFilter, sortBy]);
   
+  const handleExportCsv = () => {
+    try {
+      exportRepositoriesToCsv(filteredData);
+      toast({
+        title: "Export successful",
+        description: "Repository data has been exported to CSV",
+      });
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      toast({
+        title: "Export failed",
+        description: "Failed to export repository data",
+        variant: "destructive"
+      });
+    }
+  };
+  
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Repositories</h2>
-          <RepositoryControls
-            loading={loading}
-            refreshing={refreshing}
-            onLoadData={loadData}
-            onFetchData={fetchData}
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={loading || filteredData.length === 0}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <RepositoryControls
+              loading={loading}
+              refreshing={refreshing}
+              onLoadData={loadData}
+              onFetchData={fetchData}
+            />
+          </div>
         </div>
 
         {/* Progress Display */}

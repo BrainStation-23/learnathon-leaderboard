@@ -1,12 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, Info } from "lucide-react";
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
+import { Loader2, RefreshCw } from "lucide-react";
 
 interface RepositoryControlsProps {
   loading: boolean;
@@ -22,7 +16,7 @@ export default function RepositoryControls({
   onFetchData
 }: RepositoryControlsProps) {
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex gap-2">
       <Button 
         onClick={onLoadData} 
         variant="outline"
@@ -48,17 +42,6 @@ export default function RepositoryControls({
           </>
         )}
       </Button>
-      
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger>
-            <Info size={16} className="text-muted-foreground ml-1" />
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p>To fetch security alerts, your GitHub token requires 'repo' and 'security_events' scopes, and Dependabot alerts must be enabled in your repositories.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
     </div>
   );
 }
